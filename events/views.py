@@ -1,152 +1,171 @@
-import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.sites.shortcuts import get_current_site
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
-
-from rest_framework import status
-from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from common.models import Attachments, Comment, Profile, User
-
-from common.external_auth import CustomDualAuthentication
-from common.serializer import (
-    AttachmentsSerializer,
-    CommentSerializer,
-    ProfileSerializer
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render, reverse
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    FormView,
+    TemplateView,
+    UpdateView,
+    View,
 )
-from contacts.models import Contact
-from contacts.serializer import ContactSerializer
-from events import swagger_params1
+
+from common.models import Attachments, Comment, User
+from common.tasks import send_email_user_mentions
+from events.forms import EventAttachmentForm, EventCommentForm, EventForm
 from events.models import Event
-from events.serializer import EventCreateSerializer, EventSerializer, EventCreateSwaggerSerializer, EventDetailEditSwaggerSerializer, EventCommentEditSwaggerSerializer
 from events.tasks import send_email
-from teams.models import Teams
-from teams.serializer import TeamsSerializer
-
-WEEKDAYS = (
-    ("Monday", "Monday"),
-    ("Tuesday", "Tuesday"),
-    ("Wednesday", "Wednesday"),
-    ("Thursday", "Thursday"),
-    ("Friday", "Friday"),
-    ("Saturday", "Saturday"),
-    ("Sunday", "Sunday"),
+from common.access_decorators_mixins import (
+    sales_access_required,
+    marketing_access_required,
+    SalesAccessRequiredMixin,
+    MarketingAccessRequiredMixin,
 )
+from teams.models import Teams
 
 
-class EventListView(APIView, LimitOffsetPagination):
-    model = Event
-    authentication_classes = (CustomDualAuthentication,)
-    permission_classes = (IsAuthenticated,)
+@login_required
+def get_teams_and_users(request):
+    data = {}
+    teams = Teams.objects.all()
+    teams_data = [
+        {"team": team.id, "users": [user.id for user in team.users.all()]}
+        for team in teams
+    ]
+    users = User.objects.all().values_list("id", flat=True)
+    data["teams"] = teams_data
+    data["users"] = list(users)
+    return JsonResponse(data)
 
-    def get_context_data(self, **kwargs):
-        params = self.request.query_params
-        queryset = self.model.objects.filter(org=self.request.profile.org).order_by("-id")
-        contacts = Contact.objects.filter(org=self.request.profile.org)
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            queryset = queryset.filter(
-                Q(assigned_to__in=[self.request.profile])
-                | Q(created_by=self.request.profile.user)
-            )
-            contacts = contacts.filter(
-                Q(created_by=self.request.profile.user) | Q(assigned_to=self.request.profile)
+
+@login_required
+@sales_access_required
+def events_list(request):
+
+    if request.user.role == "ADMIN" or request.user.is_superuser:
+        users = User.objects.all()
+    # elif request.user.google.all():
+    #     # users = User.objects.none()
+    #     users = User.objects.filter(Q(role='ADMIN') | Q(id=request.user.id))
+    elif request.user.role == "USER":
+        # users = User.objects.filter(role='ADMIN')
+        users = User.objects.filter(Q(role="ADMIN") | Q(id=request.user.id))
+    else:
+        pass
+
+    users = users.filter(company=request.company)
+    if request.method == "GET":
+        context = {}
+        if request.user.role == "ADMIN" or request.user.is_superuser:
+            events = Event.objects.all().distinct()
+        else:
+            events = Event.objects.filter(
+                Q(created_by=request.user) | Q(assigned_to=request.user)
+            ).distinct()
+        context["events"] = events.filter(company=request.company).order_by(
+            "-created_on"
+        )
+        # context['status'] = status
+        context["users"] = users
+        user_ids = list(events.values_list("created_by", flat=True))
+        user_ids.append(request.user.id)
+        context["created_by_users"] = users.filter(
+            is_active=True, id__in=user_ids, company=request.company
+        )
+        return render(request, "events_list.html", context)
+
+    if request.method == "POST":
+        context = {}
+        # context['status'] = status
+        context["users"] = users
+        events = Event.objects.filter()
+        if request.user.role == "ADMIN" or request.user.is_superuser:
+            events = events
+        else:
+            events = events.filter(
+                Q(created_by=request.user) | Q(assigned_to=request.user)
             ).distinct()
 
-        if params:
-            if params.get("name"):
-                queryset = queryset.filter(name__icontains=params.get("name"))
-            if params.get("created_by"):
-                queryset = queryset.filter(created_by=params.get("created_by"))
-            if params.getlist("assigned_users"):
-                queryset = queryset.filter(
-                    assigned_to__id__in=params.get("assigned_users")
-                )
-            if params.get("date_of_meeting"):
-                queryset = queryset.filter(
-                    date_of_meeting=params.get("date_of_meeting")
-                )
+        if request.POST.get("event_name", None):
+            events = events.filter(name__icontains=request.POST.get("event_name"))
+
+        if request.POST.get("created_by", None):
+            events = events.filter(created_by__id=request.POST.get("created_by"))
+
+        if request.POST.getlist("assigned_to", None):
+            events = events.filter(assigned_to__in=request.POST.getlist("assigned_to"))
+            context["assigned_to"] = request.POST.getlist("assigned_to")
+
+        if request.POST.get("date_of_meeting", None):
+            events = events.filter(date_of_meeting=request.POST.get("date_of_meeting"))
+
+        context["events"] = events.distinct().order_by("-created_on")
+        user_ids = list(events.values_list("created_by", flat=True))
+        user_ids.append(request.user.id)
+        context["created_by_users"] = users.filter(
+            is_active=True, id__in=user_ids, company=request.company
+        )
+        return render(request, "events_list.html", context)
+
+
+@login_required
+@sales_access_required
+def event_create(request):
+    if request.method == "GET":
         context = {}
-        results_events = self.paginate_queryset(queryset, self.request, view=self)
-        events = EventSerializer(results_events, many=True).data
-        if results_events:
-            offset = queryset.filter(id__gte=results_events[-1].id).count()
-            if offset == queryset.count():
-                offset = None
-        else:
-            offset = 0
-        context.update({"events_count": self.count, "offset": offset})
-        context["events"] = events
-        context["recurring_days"] = WEEKDAYS
-        context["contacts_list"] = ContactSerializer(contacts, many=True).data
-        return context
+        context["form"] = EventForm(request_user=request.user, request_obj=request)
+        context["users"] = User.objects.filter(is_active=True, company=request.company)
+        if request.user.role == "ADMIN" or request.user.is_superuser:
+            context["teams"] = Teams.objects.filter(company=request.company)
+        return render(request, "event_create.html", context)
 
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.event_list_get_params
-    )
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
-        return Response(context)
-
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.organization_params,request=EventCreateSwaggerSerializer
-    )
-    def post(self, request, *args, **kwargs):
-        params = request.data
-        data = {}
-        serializer = EventCreateSerializer(data=params, request_obj=request)
-        if serializer.is_valid():
-            start_date = params.get("start_date")
-            end_date = params.get("end_date")
-            recurring_days = json.dumps(params.get("recurring_days"))
-            if params.get("event_type") == "Non-Recurring":
-                event_obj = serializer.save(
-                    created_by=request.profile.user,
-                    date_of_meeting=params.get("start_date"),
-                    is_active=True,
-                    disabled=False,
-                    org=request.profile.org,
-                )
-
-                if params.get("contacts"):
-                    obj_contact = Contact.objects.filter(
-                        id=params.get("contacts"), org=request.profile.org
+    if request.method == "POST":
+        form = EventForm(request.POST, request_user=request.user, request_obj=request)
+        if form.is_valid():
+            start_date = form.cleaned_data.get("start_date")
+            end_date = form.cleaned_data.get("end_date")
+            # recurring_days
+            recurring_days = request.POST.getlist("recurring_days")
+            if form.cleaned_data.get("event_type") == "Non-Recurring":
+                event = form.save(commit=False)
+                event.date_of_meeting = start_date
+                event.created_by = request.user
+                event.company = request.company
+                event.save()
+                form.save_m2m()
+                if request.POST.getlist("teams", []):
+                    user_ids = Teams.objects.filter(
+                        id__in=request.POST.getlist("teams")
+                    ).values_list("users", flat=True)
+                    assinged_to_users_ids = event.assigned_to.all().values_list(
+                        "id", flat=True
                     )
-                    event_obj.contacts.add(obj_contact)
+                    for user_id in user_ids:
+                        if user_id not in assinged_to_users_ids:
+                            event.assigned_to.add(user_id)
 
-                if params.get("teams"):
-                    teams_list = params.get("teams")
-                    teams = Teams.objects.filter(id__in=teams_list, org=request.profile.org)
-                    event_obj.teams.add(*teams)
-
-                if params.get("assigned_to"):
-                    assinged_to_list = params.get("assigned_to")
-                    profiles = Profile.objects.filter(
-                        id__in=assinged_to_list, org=request.profile.org
-                    )
-                    event_obj.assigned_to.add(*profiles)
-
+                if request.POST.getlist("teams", []):
+                    event.teams.add(*request.POST.getlist("teams"))
                 assigned_to_list = list(
-                    event_obj.assigned_to.all().values_list("id", flat=True)
+                    event.assigned_to.all().values_list("id", flat=True)
                 )
                 send_email.delay(
-                    event_obj.id,
+                    event.id,
                     assigned_to_list,
+                    domain=request.get_host(),
+                    protocol=request.scheme,
                 )
-            if params.get("event_type") == "Recurring":
-                recurring_days = params.get("recurring_days")
-                if not recurring_days:
-                    return Response(
-                        {"error": True, "errors": "Choose atleast one recurring day"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
-                start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
 
+            if form.cleaned_data.get("event_type") == "Recurring":
                 delta = end_date - start_date
+                all_dates = []
                 required_dates = []
 
                 for day in range(delta.days + 1):
@@ -156,10 +175,10 @@ class EventListView(APIView, LimitOffsetPagination):
 
                 for each in required_dates:
                     each = datetime.strptime(str(each), "%Y-%m-%d").date()
-                    data = serializer.validated_data
+                    data = form.cleaned_data
 
                     event = Event.objects.create(
-                        created_by=request.profile.user,
+                        created_by=request.user,
                         start_date=start_date,
                         end_date=end_date,
                         name=data["name"],
@@ -168,370 +187,374 @@ class EventListView(APIView, LimitOffsetPagination):
                         start_time=data["start_time"],
                         end_time=data["end_time"],
                         date_of_meeting=each,
-                        org=request.profile.org,
                     )
-
-                    if params.get("contacts"):
-                        obj_contact = Contact.objects.filter(
-                            id=params.get("contacts"), org=request.profile.org
+                    event.contacts.add(*request.POST.getlist("contacts"))
+                    event.assigned_to.add(*request.POST.getlist("assigned_to"))
+                    if request.POST.getlist("teams", []):
+                        user_ids = Teams.objects.filter(
+                            id__in=request.POST.getlist("teams")
+                        ).values_list("users", flat=True)
+                        assinged_to_users_ids = event.assigned_to.all().values_list(
+                            "id", flat=True
                         )
-                        event.contacts.add(obj_contact)
+                        for user_id in user_ids:
+                            if user_id not in assinged_to_users_ids:
+                                event.assigned_to.add(user_id)
 
-                    if params.get("teams"):
-                        teams_list = params.get("teams")
-                        teams = Teams.objects.filter(id__in=teams_list, org=request.profile.org)
-                        event.teams.add(*teams)
-
-                    if params.get("assigned_to"):
-                        assinged_to_list = params.get("assigned_to")
-                        profiles = Profile.objects.filter(
-                            id__in=assinged_to_list, org=request.profile.org
-                        )
-                        event.assigned_to.add(*profiles)
-
+                    if request.POST.getlist("teams", []):
+                        event.teams.add(*request.POST.getlist("teams"))
                     assigned_to_list = list(
                         event.assigned_to.all().values_list("id", flat=True)
                     )
                     send_email.delay(
                         event.id,
                         assigned_to_list,
+                        domain=request.get_host(),
+                        protocol=request.scheme,
                     )
-            return Response(
-                {"error": False, "message": "Event Created Successfully"},
-                status=status.HTTP_200_OK,
+
+            return JsonResponse(
+                {"error": False, "success_url": reverse("events:events_list")}
             )
-        return Response(
-            {"error": True, "errors": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST,
+        else:
+            return JsonResponse({"error": True, "errors": form.errors,})
+
+
+@login_required
+@sales_access_required
+def event_detail_view(request, event_id):
+    event = get_object_or_404(Event, pk=event_id)
+    if (
+        not (
+            request.user.role == "ADMIN"
+            or request.user.is_superuser
+            or event.created_by == request.user
+            or request.user in event.assigned_to.all()
         )
+        or request.company != event.company
+    ):
 
+        raise PermissionDenied
 
-class EventDetailView(APIView):
-    model = Event
-    authentication_classes = (CustomDualAuthentication,)
-    permission_classes = (IsAuthenticated,)
-
-    def get_object(self, pk):
-        return Event.objects.get(pk=pk)
-
-    def get_context_data(self, **kwargs):
+    if request.method == "GET":
         context = {}
-        user_assgn_list = [
-            assigned_to.id for assigned_to in self.event_obj.assigned_to.all()
+        context["event"] = event
+        context["attachments"] = event.events_attachment.all()
+        context["comments"] = event.events_comments.all()
+        if request.user.is_superuser or request.user.role == "ADMIN":
+            context["users_mention"] = list(
+                User.objects.filter(is_active=True, company=request.company).values(
+                    "username"
+                )
+            )
+        elif request.user != event.created_by:
+            context["users_mention"] = [{"username": event.created_by.username}]
+        else:
+            context["users_mention"] = list(event.assigned_to.all().values("username"))
+        return render(request, "event_detail.html", context)
+
+
+@login_required
+@sales_access_required
+def event_update(request, event_id):
+    event_obj = get_object_or_404(Event, pk=event_id)
+    if (
+        not (
+            request.user.role == "ADMIN"
+            or request.user.is_superuser
+            or event_obj.created_by == request.user
+            or request.user in event_obj.assigned_to.all()
+        )
+        or request.company != event_obj.company
+    ):
+        raise PermissionDenied
+
+    if request.method == "GET":
+        context = {}
+        context["event_obj"] = event_obj
+        context["users"] = User.objects.filter(is_active=True)
+        context["form"] = EventForm(
+            instance=event_obj, request_user=request.user, request_obj=request
+        )
+        selected_recurring_days = Event.objects.filter(name=event_obj.name).values_list(
+            "date_of_meeting", flat=True
+        )
+        selected_recurring_days = [
+            day.strftime("%A") for day in selected_recurring_days
         ]
-        if self.request.profile == self.event_obj.created_by:
-            user_assgn_list.append(self.request.profile.id)
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            if self.request.profile.id not in user_assgn_list:
-                return Response(
-                    {
-                        "error": True,
-                        "errors": "You don't have Permission to perform this action",
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+        context["selected_recurring_days"] = selected_recurring_days
+        if request.user.role == "ADMIN" or request.user.is_superuser:
+            context["teams"] = Teams.objects.filter(company=request.company)
+        return render(request, "event_create.html", context)
 
-        comments = Comment.objects.filter(event=self.event_obj).order_by("-id")
-        attachments = Attachments.objects.filter(event=self.event_obj).order_by("-id")
-        assigned_data = self.event_obj.assigned_to.values("id", "user__email")
-        if self.request.profile.is_admin or self.request.profile.role == "ADMIN":
-            users_mention = list(
-                Profile.objects.filter(
-                    is_active=True,
-                ).values("user__email")
-            )
-        elif self.request.profile != self.event_obj.created_by:
-            users_mention = [{"username": self.event_obj.created_by.user.email}]
-        else:
-            users_mention = list(
-                self.event_obj.assigned_to.all().values("user__email")
-            )
-        profile_list = Profile.objects.filter(is_active=True, org=self.request.profile.org)
-        if self.request.profile.role == "ADMIN" or self.request.profile.is_admin:
-            profiles = profile_list.order_by("user__email")
-        else:
-            profiles = profile_list.filter(role="ADMIN").order_by("user__email")
-
-        if self.request.profile == self.event_obj.created_by:
-            user_assgn_list.append(self.request.profile.id)
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            if self.request.profile.id not in user_assgn_list:
-                return Response(
-                    {
-                        "error": True,
-                        "errors": "You don't have Permission to perform this action",
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        team_ids = [user.id for user in self.event_obj.get_team_users]
-        all_user_ids = profiles.values_list("id", flat=True)
-        users_excluding_team_id = set(all_user_ids) - set(team_ids)
-        users_excluding_team = Profile.objects.filter(id__in=users_excluding_team_id)
-
-        selected_recurring_days = Event.objects.filter(
-            name=self.event_obj.name
-        ).values_list("date_of_meeting", flat=True)
-        selected_recurring_days = set(
-            [day.strftime("%A") for day in selected_recurring_days]
-        )
-        context.update(
-            {
-                "event_obj": EventSerializer(self.event_obj).data,
-                "attachments": AttachmentsSerializer(attachments, many=True).data,
-                "comments": CommentSerializer(comments, many=True).data,
-                "selected_recurring_days": selected_recurring_days,
-                "users_mention": users_mention,
-                "assigned_data": assigned_data,
-            }
-        )
-
-        context["users"] = ProfileSerializer(profiles, many=True).data
-        context["users_excluding_team"] = ProfileSerializer(
-            users_excluding_team, many=True
-        ).data
-        context["teams"] = TeamsSerializer(Teams.objects.all(), many=True).data
-        return context
-
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.organization_params
-    )
-    def get(self, request, pk, **kwargs):
-        self.event_obj = self.get_object(pk)
-        if self.event_obj.org != request.profile.org:
-            return Response(
-                {"error": True, "errors": "User company doesnot match with header...."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        context = self.get_context_data(**kwargs)
-        return Response(context)
-
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.organization_params,request=EventDetailEditSwaggerSerializer
-    )
-    def post(self, request, pk, **kwargs):
-        params = request.data
-        context = {}
-        self.event_obj = Event.objects.get(pk=pk)
-        if self.event_obj.org != request.profile.org:
-            return Response(
-                {
-                    "error": True,
-                    "errors": "User company does not match with header....",
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            if not (
-                (self.request.profile == self.event_obj.created_by)
-                or (self.request.profile in self.event_obj.assigned_to.all())
-            ):
-                return Response(
-                    {
-                        "error": True,
-                        "errors": "You don't have Permission to perform this action",
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        comment_serializer = CommentSerializer(data=params)
-        if comment_serializer.is_valid():
-            if params.get("comment"):
-                comment_serializer.save(
-                    event_id=self.event_obj.id,
-                    commented_by_id=self.request.profile.id,
-                )
-
-        if self.request.FILES.get("event_attachment"):
-            attachment = Attachments()
-            attachment.created_by = self.request.profile.user
-            attachment.file_name = self.request.FILES.get("event_attachment").name
-            attachment.event = self.event_obj
-            attachment.attachment = self.request.FILES.get("event_attachment")
-            attachment.save()
-
-        comments = Comment.objects.filter(event__id=self.event_obj.id).order_by("-id")
-        attachments = Attachments.objects.filter(event__id=self.event_obj.id).order_by(
-            "-id"
-        )
-        context.update(
-            {
-                "event_obj": EventSerializer(self.event_obj).data,
-                "attachments": AttachmentsSerializer(attachments, many=True).data,
-                "comments": CommentSerializer(comments, many=True).data,
-            }
-        )
-        return Response(context)
-
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.organization_params,request=EventCreateSwaggerSerializer
-    )
-    def put(self, request, pk, **kwargs):
-        params = request.data
-        data = {}
-        self.event_obj = self.get_object(pk)
-        if self.event_obj.org != request.profile.org:
-            return Response(
-                {"error": True, "errors": "User company doesnot match with header...."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        serializer = EventCreateSerializer(
-            data=params,
-            instance=self.event_obj,
+    if request.method == "POST":
+        form = EventForm(
+            request.POST,
+            instance=event_obj,
+            request_user=request.user,
             request_obj=request,
         )
-        if serializer.is_valid():
-            event_obj = serializer.save()
+        if form.is_valid():
+            start_date = form.cleaned_data.get("start_date")
+            end_date = form.cleaned_data.get("end_date")
             previous_assigned_to_users = list(
                 event_obj.assigned_to.all().values_list("id", flat=True)
             )
-            if params.get("event_type") == "Non-Recurring":
-                event_obj.date_of_meeting = event_obj.start_date
 
-            event_obj.contacts.clear()
-            if params.get("contacts"):
-                obj_contact = Contact.objects.filter(
-                    id=params.get("contacts"), org=request.profile.org
+            # recurring_days
+            # recurring_days = request.POST.getlist('days')
+            if form.data.get("event_type") == "Non-Recurring":
+                event = form.save(commit=False)
+                event.date_of_meeting = start_date
+                # event.created_by = request.user
+                event.save()
+                form.save_m2m()
+                if request.POST.getlist("teams", []):
+                    user_ids = Teams.objects.filter(
+                        id__in=request.POST.getlist("teams")
+                    ).values_list("users", flat=True)
+                    assinged_to_users_ids = event.assigned_to.all().values_list(
+                        "id", flat=True
+                    )
+                    for user_id in user_ids:
+                        if user_id not in assinged_to_users_ids:
+                            event.assigned_to.add(user_id)
+                if request.POST.getlist("teams", []):
+                    event.teams.clear()
+                    event.teams.add(*request.POST.getlist("teams"))
+                else:
+                    event.teams.clear()
+                assigned_to_list = list(
+                    event.assigned_to.all().values_list("id", flat=True)
                 )
-                event_obj.contacts.add(obj_contact)
-
-            event_obj.teams.clear()
-            if params.get("teams"):
-                teams_list = params.get("teams")
-                teams = Teams.objects.filter(id__in=teams_list, org=request.profile.org)
-                event_obj.teams.add(*teams)
-
-            event_obj.assigned_to.clear()
-            if params.get("assigned_to"):
-                assinged_to_list = params.get("assigned_to")
-                profiles = Profile.objects.filter(
-                    id__in=assinged_to_list, org=request.profile.org
+                recipients = list(
+                    set(assigned_to_list) - set(previous_assigned_to_users)
                 )
-                event_obj.assigned_to.add(*profiles)
+                send_email.delay(
+                    event.id,
+                    recipients,
+                    domain=request.get_host(),
+                    protocol=request.scheme,
+                )
 
-            assigned_to_list = list(
-                event_obj.assigned_to.all().values_list("id", flat=True)
+            if form.data.get("event_type") == "Recurring":
+                event = form.save(commit=False)
+                event.save()
+                form.save_m2m()
+                if request.POST.getlist("teams", []):
+                    user_ids = Teams.objects.filter(
+                        id__in=request.POST.getlist("teams")
+                    ).values_list("users", flat=True)
+                    assinged_to_users_ids = event.assigned_to.all().values_list(
+                        "id", flat=True
+                    )
+                    for user_id in user_ids:
+                        if user_id not in assinged_to_users_ids:
+                            event.assigned_to.add(user_id)
+                if request.POST.getlist("teams", []):
+                    event.teams.clear()
+                    event.teams.add(*request.POST.getlist("teams"))
+                else:
+                    event.teams.clear()
+                assigned_to_list = list(
+                    event.assigned_to.all().values_list("id", flat=True)
+                )
+                recipients = list(
+                    set(assigned_to_list) - set(previous_assigned_to_users)
+                )
+                send_email.delay(
+                    event.id,
+                    recipients,
+                    domain=request.get_host(),
+                    protocol=request.scheme,
+                )
+
+                # event.contacts.add(*request.POST.getlist('contacts'))
+                # event.assigned_to.add(*request.POST.getlist('assigned_to'))
+
+            return JsonResponse(
+                {"error": False, "success_url": reverse("events:events_list")}
             )
-            recipients = list(set(assigned_to_list) - set(previous_assigned_to_users))
-            send_email.delay(
-                event_obj.id,
-                recipients,
-            )
-            return Response(
-                {"error": False, "message": "Event updated Successfully"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {"error": True, "errors": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST,
+        else:
+            return JsonResponse({"error": True, "errors": form.errors,})
+
+
+@login_required
+@sales_access_required
+def event_delete(request, event_id):
+    event = get_object_or_404(Event, pk=event_id)
+    if (
+        not (
+            request.user.role == "ADMIN"
+            or request.user.is_superuser
+            or event.created_by == request.user
         )
+        or request.company != event.company
+    ):
+        raise PermissionDenied
 
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.organization_params
-    )
-    def delete(self, request, pk, **kwargs):
-        self.object = self.get_object(pk)
-        if (
-            request.profile.role == "ADMIN"
-            or request.profile.is_admin
-            or request.profile == self.object.created_by
-        ) and self.object.org == request.profile.org:
-            self.object.delete()
-            return Response(
-                {"error": False, "message": "Event deleted Successfully"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {"error": True, "errors": "you don't have permission to delete this event"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+    event.delete()
+    return redirect("events:events_list")
 
 
-class EventCommentView(APIView):
+class AddCommentView(LoginRequiredMixin, CreateView):
     model = Comment
-    authentication_classes = (CustomDualAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    form_class = EventCommentForm
+    http_method_names = ["post"]
 
-    def get_object(self, pk):
-        return self.model.objects.get(pk=pk)
-
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.organization_params,request=EventCommentEditSwaggerSerializer
-    )
-    def put(self, request, pk, format=None):
-        params = request.data
-        obj = self.get_object(pk)
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        self.event = get_object_or_404(Event, id=request.POST.get("event_id"))
         if (
-            request.profile.role == "ADMIN"
-            or request.profile.is_admin
-            or request.profile == obj.commented_by
+            request.user == self.event.created_by
+            or request.user.is_superuser
+            or request.user.role == "ADMIN"
         ):
-            serializer = CommentSerializer(obj, data=params)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(
-                    {"error": False, "message": "Comment Submitted"},
-                    status=status.HTTP_200_OK,
-                )
-            return Response(
-                {"error": True, "errors": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        return Response(
+            form = self.get_form()
+            if form.is_valid():
+                return self.form_valid(form)
+            return self.form_invalid(form)
+
+        data = {"error": "You don't have permission to comment for this account."}
+        return JsonResponse(data)
+
+    def form_valid(self, form):
+        comment = form.save(commit=False)
+        comment.commented_by = self.request.user
+        comment.event = self.event
+        comment.save()
+        comment_id = comment.id
+        current_site = get_current_site(self.request)
+        send_email_user_mentions.delay(
+            comment_id,
+            "events",
+            domain=current_site.domain,
+            protocol=self.request.scheme,
+        )
+        return JsonResponse(
             {
-                "error": True,
-                "errors": "You don't have Permission to perform this action",
-            },
-            status=status.HTTP_403_FORBIDDEN,
+                "comment_id": comment.id,
+                "comment": comment.comment,
+                "commented_on": comment.commented_on,
+                "commented_on_arrow": comment.commented_on_arrow,
+                "commented_by": comment.commented_by.email,
+            }
         )
 
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.organization_params
-    )
-    def delete(self, request, pk, format=None):
-        self.object = self.get_object(pk)
-        if (
-            request.profile.role == "ADMIN"
-            or request.profile.is_admin
-            or request.profile == self.object.commented_by
-        ):
+    def form_invalid(self, form):
+        return JsonResponse({"error": form["comment"].errors})
+
+
+class UpdateCommentView(LoginRequiredMixin, View):
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        self.comment_obj = get_object_or_404(Comment, id=request.POST.get("commentid"))
+        if request.user == self.comment_obj.commented_by:
+            form = EventCommentForm(request.POST, instance=self.comment_obj)
+            if form.is_valid():
+                return self.form_valid(form)
+
+            return self.form_invalid(form)
+
+        data = {"error": "You don't have permission to edit this comment."}
+        return JsonResponse(data)
+
+    def form_valid(self, form):
+        self.comment_obj.comment = form.cleaned_data.get("comment")
+        self.comment_obj.save(update_fields=["comment"])
+        comment_id = self.comment_obj.id
+        current_site = get_current_site(self.request)
+        send_email_user_mentions.delay(
+            comment_id,
+            "events",
+            domain=current_site.domain,
+            protocol=self.request.scheme,
+        )
+        return JsonResponse(
+            {"comment_id": self.comment_obj.id, "comment": self.comment_obj.comment,}
+        )
+
+    def form_invalid(self, form):
+        return JsonResponse({"error": form["comment"].errors})
+
+
+class DeleteCommentView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        self.object = get_object_or_404(Comment, id=request.POST.get("comment_id"))
+        if request.user == self.object.commented_by:
             self.object.delete()
-            return Response(
-                {"error": False, "message": "Comment Deleted Successfully"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {
-                "error": True,
-                "errors": "You don't have Permission to perform this action",
-            },
-            status=status.HTTP_403_FORBIDDEN,
-        )
+            data = {"cid": request.POST.get("comment_id")}
+            return JsonResponse(data)
+
+        data = {"error": "You don't have permission to delete this comment."}
+        return JsonResponse(data)
 
 
-class EventAttachmentView(APIView):
+class AddAttachmentView(LoginRequiredMixin, CreateView):
     model = Attachments
-    authentication_classes = (CustomDualAuthentication,)
-    permission_classes = (IsAuthenticated,)
+    form_class = EventAttachmentForm
+    http_method_names = ["post"]
 
-    @extend_schema(
-        tags=["Events"], parameters=swagger_params1.organization_params
-    )
-    def delete(self, request, pk, format=None):
-        self.object = self.model.objects.get(pk=pk)
+    def post(self, request, *args, **kwargs):
+        self.object = None
+        self.event = get_object_or_404(Event, id=request.POST.get("event_id"))
         if (
-            request.profile.role == "ADMIN"
-            or request.profile.is_admin
-            or request.profile == self.object.created_by
+            request.user == self.event.created_by
+            or request.user.is_superuser
+            or request.user.role == "ADMIN"
+        ):
+            form = self.get_form()
+            if form.is_valid():
+                return self.form_valid(form)
+
+            return self.form_invalid(form)
+
+        data = {
+            "error": "You don't have permission to add attachment \
+            for this account."
+        }
+        return JsonResponse(data)
+
+    def form_valid(self, form):
+        attachment = form.save(commit=False)
+        attachment.created_by = self.request.user
+        attachment.file_name = attachment.attachment.name
+        attachment.event = self.event
+        attachment.save()
+        return JsonResponse(
+            {
+                "attachment_id": attachment.id,
+                "attachment": attachment.file_name,
+                "attachment_url": attachment.attachment.url,
+                "download_url": reverse(
+                    "common:download_attachment", kwargs={"pk": attachment.id}
+                ),
+                "attachment_display": attachment.get_file_type_display(),
+                "created_on": attachment.created_on,
+                "created_on_arrow": attachment.created_on_arrow,
+                "created_by": attachment.created_by.email,
+                "file_type": attachment.file_type(),
+            }
+        )
+
+    def form_invalid(self, form):
+        return JsonResponse({"error": form["attachment"].errors})
+
+
+class DeleteAttachmentsView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        self.object = get_object_or_404(
+            Attachments, id=request.POST.get("attachment_id")
+        )
+        if (
+            request.user == self.object.created_by
+            or request.user.is_superuser
+            or request.user.role == "ADMIN"
         ):
             self.object.delete()
-            return Response(
-                {"error": False, "message": "Attachment Deleted Successfully"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {
-                "error": True,
-                "errors": "You don't have Permission to perform this action",
-            },
-            status=status.HTTP_403_FORBIDDEN,
-        )
+            data = {"acd": request.POST.get("attachment_id")}
+            return JsonResponse(data)
+
+        data = {"error": "You don't have permission to delete this attachment."}
+        return JsonResponse(data)

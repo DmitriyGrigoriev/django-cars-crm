@@ -1,5 +1,4 @@
 from django.contrib import admin
-
 from emails.models import Email
 
 # Register your models here.

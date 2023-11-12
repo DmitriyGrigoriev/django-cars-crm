@@ -1,191 +1,153 @@
-import json
-from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
+from datetime import date, datetime, timedelta
 
-from common.external_auth import CustomDualAuthentication
-from rest_framework import status
-from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.sites.shortcuts import get_current_site
+from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render, reverse
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    FormView,
+    TemplateView,
+    UpdateView,
+    View,
+)
 
-from common.models import Profile
-from teams import swagger_params1
+from common.models import User
 from teams.models import Teams
-from teams.serializer import TeamCreateSerializer, TeamsSerializer,TeamswaggerCreateSerializer
-from teams.tasks import remove_users, update_team_users
+from teams.forms import TeamForm
+from teams.tasks import update_team_users, remove_users
 
 
-class TeamsListView(APIView, LimitOffsetPagination):
-    model = Teams
-    authentication_classes = (CustomDualAuthentication,)
-    permission_classes = (IsAuthenticated,)
+@login_required
+def teams_list(request):
+    context = {}
+    if request.user.role == "ADMIN" or request.user.is_superuser:
+        queryset = Teams.objects.filter(company=request.company).order_by("-created_on")
+        users = User.objects.filter(company=request.company)
+        context["teams"] = queryset
+        context["users"] = users
+    else:
+        raise PermissionDenied
 
-    def get_context_data(self, **kwargs):
-        params = self.request.query_params
-        queryset = self.model.objects.filter(org=self.request.profile.org).order_by("-id")
-        if params:
-            if params.get("team_name"):
-                queryset = queryset.filter(name__icontains=params.get("team_name"))
-            if params.get("created_by"):
-                queryset = queryset.filter(created_by=params.get("created_by"))
-            if params.get("assigned_users"):
-                queryset = queryset.filter(
-                    users__id__in=params.get("assigned_users")
-                )
+    if request.method == "GET":
+        user_ids = list(queryset.values_list("created_by", flat=True))
+        user_ids.append(request.user.id)
+        context["created_by_users"] = users.filter(is_active=True, id__in=user_ids)
+        return render(request, "teams.html", context)
+    if request.method == "POST":
+        if request.POST.get("team_name"):
+            queryset = queryset.filter(name__icontains=request.POST.get("team_name"))
+        if request.POST.get("created_by"):
+            queryset = queryset.filter(created_by=request.POST.get("created_by"))
+        if request.POST.get("assigned_to"):
+            queryset = queryset.filter(
+                users__id__in=request.POST.getlist("assigned_to")
+            )
+        context["assigned_to"] = request.POST.getlist("assigned_to")
+        context["teams"] = queryset
+        user_ids = list(queryset.values_list("created_by", flat=True))
+        user_ids.append(request.user.id)
+        context["created_by_users"] = users.filter(is_active=True, id__in=user_ids)
+        return render(request, "teams.html", context)
 
-        context = {}
-        results_teams = self.paginate_queryset(
-            queryset.distinct(), self.request, view=self
-        )
-        teams = TeamsSerializer(results_teams, many=True).data
-        if results_teams:
-            offset = queryset.filter(id__gte=results_teams[-1].id).count()
-            if offset == queryset.count():
-                offset = None
-        else:
-            offset = 0
-        context["per_page"] = 10
-        page_number = (int(self.offset / 10) + 1,)
-        context["page_number"] = page_number
-        context.update({"teams_count": self.count, "offset": offset})
+
+@login_required
+def team_create(request):
+    context = {}
+    if request.user.role == "ADMIN" or request.user.is_superuser:
+        teams = Teams.objects.filter(company=request.company)
         context["teams"] = teams
-        return context
+    else:
+        raise PermissionDenied
 
-    @extend_schema(
-        tags=["Teams"], parameters=swagger_params1.teams_list_get_params
-    )
-    def get(self, *args, **kwargs):
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            return Response(
-                {
-                    "error": True,
-                    "errors": "You don't have permission to perform this action.",
-                },
-                status=status.HTTP_403_FORBIDDEN,
+    if request.method == "GET":
+        form = TeamForm(request_obj=request)
+        context["form"] = form
+        return render(request, "team_create.html", context)
+
+    if request.method == "POST":
+        form = TeamForm(request.POST, request_obj=request)
+        if form.is_valid():
+            task_obj = form.save(commit=False)
+            task_obj.created_by = request.user
+            task_obj.company = request.company
+            task_obj.save()
+            form.save_m2m()
+            return JsonResponse(
+                {"error": False, "success_url": reverse("teams:teams_list")}
             )
-        context = self.get_context_data(**kwargs)
-        return Response(context)
-
-    @extend_schema(
-        tags=["Teams"], request=TeamswaggerCreateSerializer,parameters=swagger_params1.organization_params
-    )
-    def post(self, request, *args, **kwargs):
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            return Response(
-                {
-                    "error": True,
-                    "errors": "You don't have permission to perform this action.",
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        params = self.request.data
-        print(request,self.request)
-        serializer = TeamCreateSerializer(data=params, request_obj=request)
-        if serializer.is_valid():
-            team_obj = serializer.save(org=request.profile.org)
-
-            if params.get("assign_users"):
-                assinged_to_list = params.get("users")
-                profiles = Profile.objects.filter(
-                    id__in=assinged_to_list, org=request.profile.org
-                )
-                if profiles:
-                    team_obj.users.add(*profiles)
-            return Response(
-                {"error": False, "message": "Team Created Successfully"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {"error": True, "errors": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        else:
+            return JsonResponse({"error": True, "errors": form.errors})
 
 
-class TeamsDetailView(APIView):
-    model = Teams
-    authentication_classes = (CustomDualAuthentication,)
-    permission_classes = (IsAuthenticated,)
+@login_required
+def team_detail(request, team_id):
+    if not (request.user.role == "ADMIN" or request.user.is_superuser):
+        raise PermissionDenied
+    team_obj = get_object_or_404(Teams, pk=team_id)
+    if team_obj.company != request.company:
+        raise PermissionDenied
+    context = {}
 
-    def get_object(self, pk):
-        return self.model.objects.get(pk=pk, org=self.request.profile.org)
+    if request.method == "GET":
+        context["team_obj"] = team_obj
+        return render(request, "team_detail.html", context)
 
-    @extend_schema(
-        tags=["Teams"], parameters=swagger_params1.organization_params
-    )
-    def get(self, request, pk, **kwargs):
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            return Response(
-                {
-                    "error": True,
-                    "errors": "You don't have permission to perform this action.",
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        self.team_obj = self.get_object(pk)
-        context = {}
-        context["team"] = TeamsSerializer(self.team_obj).data
-        return Response(context)
 
-    @extend_schema(
-        tags=["Teams"], request=TeamswaggerCreateSerializer,parameters=swagger_params1.organization_params
-    )
-    def put(self, request, pk, *args, **kwargs):
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            return Response(
-                {
-                    "error": True,
-                    "errors": "You don't have permission to perform this action.",
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        params = request.data
-        self.team = self.get_object(pk)
-        actual_users = self.team.get_users()
+@login_required
+def team_edit(request, team_id):
+    if not (request.user.role == "ADMIN" or request.user.is_superuser):
+        raise PermissionDenied
+    team_obj = get_object_or_404(Teams, pk=team_id)
+    if team_obj.company != request.company:
+        raise PermissionDenied
+    actual_users = team_obj.get_users()
+    context = {}
+
+    if request.method == "GET":
+        form = TeamForm(instance=team_obj, request_obj=request)
+        context["form"] = form
+        return render(request, "team_create.html", context)
+
+    if request.method == "POST":
         removed_users = []
-        serializer = TeamCreateSerializer(
-            data=params, instance=self.team, request_obj=request
-        )
-        if serializer.is_valid():
-            team_obj = serializer.save()
-
-            team_obj.users.clear()
-            if params.get("assign_users"):
-                assinged_to_list = params.get("assign_users")
-                profiles = Profile.objects.filter(
-                    id__in=assinged_to_list, org=request.profile.org
-                )
-                if profiles:
-                    team_obj.users.add(*profiles)
-            update_team_users.delay(pk)
-            latest_users = team_obj.get_users()
+        form = TeamForm(request.POST, instance=team_obj, request_obj=request)
+        if form.is_valid():
+            task_obj = form.save(commit=False)
+            if "users" in form.changed_data:
+                update_team_users.delay(team_id)
+                # pass
+            task_obj.save()
+            form.save_m2m()
+            latest_users = task_obj.get_users()
             for user in actual_users:
-                if user not in latest_users:
-                    removed_users.append(user)
-            remove_users.delay(removed_users, pk)
-            return Response(
-                {"error": False, "message": "Team Updated Successfully"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {"error": True, "errors": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+                if user in latest_users:
+                    pass
+                else:
 
-    @extend_schema(
-        tags=["Teams"], parameters=swagger_params1.organization_params
-    )
-    def delete(self, request, pk, **kwargs):
-        if self.request.profile.role != "ADMIN" and not self.request.profile.is_admin:
-            return Response(
-                {
-                    "error": True,
-                    "errors": "You don't have permission to perform this action.",
-                },
-                status=status.HTTP_403_FORBIDDEN,
+                    removed_users.append(user)
+            remove_users.delay(removed_users, team_id)
+            return JsonResponse(
+                {"error": False, "success_url": reverse("teams:teams_list")}
             )
-        self.team_obj = self.get_object(pk)
-        self.team_obj.delete()
-        return Response(
-            {"error": False, "message": "Team Deleted Successfully"},
-            status=status.HTTP_200_OK,
-        )
+        else:
+            return JsonResponse({"error": True, "errors": form.errors})
+
+
+@login_required
+def team_delete(request, team_id):
+    if not (request.user.role == "ADMIN" or request.user.is_superuser):
+        raise PermissionDenied
+    team_obj = get_object_or_404(Teams, pk=team_id)
+    if team_obj.company != request.company:
+        raise PermissionDenied
+    context = {}
+
+    if request.method == "GET":
+        team_obj.delete()
+        return redirect("teams:teams_list")

@@ -1,10 +1,9 @@
 from django import forms
-from django.db.models import Q
-
-from accounts.models import Account
-from common.models import Address, Attachments, Comment, User
 from invoices.models import Invoice
+from common.models import User, Comment, Attachments, Address
+from django.db.models import Q
 from teams.models import Teams
+from accounts.models import Account
 
 
 class InvoiceForm(forms.ModelForm):
@@ -42,8 +41,7 @@ class InvoiceForm(forms.ModelForm):
                 role="ADMIN", company=request_obj.company
             )
             self.fields["accounts"].queryset = Account.objects.filter(
-                status="open",
-                company=request_obj.company,
+                status="open", company=request_obj.company,
             ).filter(Q(created_by=request_user) | Q(assigned_to=request_user))
         else:
             pass
@@ -51,6 +49,7 @@ class InvoiceForm(forms.ModelForm):
         self.fields["teams"].required = False
         self.fields["phone"].widget.attrs.update({"placeholder": "+911234567890"})
         self.fields["invoice_title"].required = True
+        self.fields["invoice_number"].required = True
         self.fields["currency"].required = True
         self.fields["email"].required = True
         self.fields["total_amount"].required = True
@@ -65,10 +64,24 @@ class InvoiceForm(forms.ModelForm):
 
         return quantity
 
+    def clean_invoice_number(self):
+        invoice_number = self.cleaned_data.get("invoice_number")
+        if (
+            Invoice.objects.filter(invoice_number=invoice_number)
+            .exclude(id=self.instance.id)
+            .exists()
+        ):
+            raise forms.ValidationError(
+                "Invoice with this Invoice Number already exists."
+            )
+
+        return invoice_number
+
     class Meta:
         model = Invoice
         fields = (
             "invoice_title",
+            "invoice_number",
             "from_address",
             "to_address",
             "name",
@@ -83,7 +96,6 @@ class InvoiceForm(forms.ModelForm):
             "details",
             "due_date",
             "accounts",
-            "tax",
         )
 
 

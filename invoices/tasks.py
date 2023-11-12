@@ -1,4 +1,4 @@
-from celery import Celery
+from celery.task import task
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.shortcuts import reverse
@@ -6,38 +6,44 @@ from django.template.loader import render_to_string
 
 from common.models import User
 from invoices.models import Invoice, InvoiceHistory
+from marketing.models import BlockedDomain, BlockedEmail
 
-app = Celery("redis://")
 
-
-@app.task
+@task
 def send_email(invoice_id, recipients, domain="demo.django-crm.io", protocol="http"):
     invoice = Invoice.objects.filter(id=invoice_id).first()
     created_by = invoice.created_by
+    blocked_domains = BlockedDomain.objects.values_list("domain", flat=True)
+    blocked_emails = BlockedEmail.objects.values_list("email", flat=True)
     for user in recipients:
         recipients_list = []
         user = User.objects.filter(id=user, is_active=True).first()
         if user:
-            recipients_list.append(user.email)
-            subject = "Shared an invoice with you."
-            context = {}
-            context["invoice_title"] = invoice.invoice_title
-            context["invoice_id"] = invoice_id
-            context["invoice_created_by"] = invoice.created_by
-            context["url"] = (
-                protocol
-                + "://"
-                + domain
-                + reverse("invoices:invoice_details", args=(invoice.id,))
-            )
+            if (user.email not in blocked_emails) and (
+                user.email.split("@")[-1] not in blocked_domains
+            ):
+                recipients_list.append(user.email)
+                subject = "Shared an invoice with you."
+                context = {}
+                context["invoice_title"] = invoice.invoice_title
+                context["invoice_id"] = invoice_id
+                context["invoice_created_by"] = invoice.created_by
+                context["url"] = (
+                    protocol
+                    + "://"
+                    + domain
+                    + reverse("invoices:invoice_details", args=(invoice.id,))
+                )
 
-            context["user"] = user
-            html_content = render_to_string(
-                "assigned_to_email_template.html", context=context
-            )
-            msg = EmailMessage(subject=subject, body=html_content, to=recipients_list)
-            msg.content_subtype = "html"
-            msg.send()
+                context["user"] = user
+                html_content = render_to_string(
+                    "assigned_to_email_template.html", context=context
+                )
+                msg = EmailMessage(
+                    subject=subject, body=html_content, to=recipients_list
+                )
+                msg.content_subtype = "html"
+                msg.send()
     recipients = invoice.accounts.filter(status="open")
     if recipients.count() > 0:
         subject = "Shared an invoice with you."
@@ -57,17 +63,13 @@ def send_email(invoice_id, recipients, domain="demo.django-crm.io", protocol="ht
                 "assigned_to_email_template.html", context=context
             )
             msg = EmailMessage(
-                subject=subject,
-                body=html_content,
-                to=[
-                    recipient.email,
-                ],
+                subject=subject, body=html_content, to=[recipient.email,]
             )
             msg.content_subtype = "html"
             msg.send()
 
 
-@app.task
+@task
 def send_invoice_email(invoice_id, domain="demo.django-crm.io", protocol="http"):
     invoice = Invoice.objects.filter(id=invoice_id).first()
     if invoice:
@@ -87,7 +89,7 @@ def send_invoice_email(invoice_id, domain="demo.django-crm.io", protocol="http")
         msg.send()
 
 
-@app.task
+@task
 def send_invoice_email_cancel(invoice_id, domain="demo.django-crm.io", protocol="http"):
     invoice = Invoice.objects.filter(id=invoice_id).first()
     if invoice:
@@ -107,7 +109,7 @@ def send_invoice_email_cancel(invoice_id, domain="demo.django-crm.io", protocol=
         msg.send()
 
 
-@app.task
+@task
 def create_invoice_history(original_invoice_id, updated_by_user_id, changed_fields):
     """original_invoice_id, updated_by_user_id, changed_fields"""
     original_invoice = Invoice.objects.filter(id=original_invoice_id).first()

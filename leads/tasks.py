@@ -1,16 +1,16 @@
 import re
 
-from celery import Celery
+from celery.task import task
 from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.db.models import Q
+from django.shortcuts import reverse
 from django.template.loader import render_to_string
 
-from common.models import Org, Profile
+from accounts.models import User
 from leads.models import Lead
-
-app = Celery("redis://")
+from marketing.models import BlockedDomain, BlockedEmail
 
 
 def get_rendered_html(template_name, context={}):
@@ -18,7 +18,7 @@ def get_rendered_html(template_name, context={}):
     return html_content
 
 
-@app.task
+@task
 def send_email(
     subject,
     html_content,
@@ -44,7 +44,7 @@ def send_email(
     email.send()
 
 
-@app.task
+@task
 def send_lead_assigned_emails(lead_id, new_assigned_to_list, site_address):
     lead_instance = Lead.objects.filter(
         ~Q(status="converted"), pk=lead_id, is_active=True
@@ -52,7 +52,7 @@ def send_lead_assigned_emails(lead_id, new_assigned_to_list, site_address):
     if not (lead_instance and new_assigned_to_list):
         return False
 
-    users = Profile.objects.filter(id__in=new_assigned_to_list).distinct()
+    users = User.objects.filter(id__in=new_assigned_to_list).distinct()
     subject = "Lead '%s' has been assigned to you" % lead_instance
     from_email = settings.DEFAULT_FROM_EMAIL
     template_name = "lead_assigned.html"
@@ -65,48 +65,59 @@ def send_lead_assigned_emails(lead_id, new_assigned_to_list, site_address):
         "lead_detail_url": url,
     }
     mail_kwargs = {"subject": subject, "from_email": from_email}
-    for profile in users:
-        if profile.user.email:
-            context["user"] = profile.user
+    for user in users:
+        if user.email:
+            context["user"] = user
             html_content = get_rendered_html(template_name, context)
             mail_kwargs["html_content"] = html_content
-            mail_kwargs["recipients"] = [profile.user.email]
+            mail_kwargs["recipients"] = [user.email]
             send_email.delay(**mail_kwargs)
 
 
-@app.task
-def send_email_to_assigned_user(recipients, lead_id, source=""):
-    """Send Mail To Users When they are assigned to a lead"""
+@task
+def send_email_to_assigned_user(
+    recipients, lead_id, domain="demo.django-crm.io", protocol="http", source=""
+):
+    """ Send Mail To Users When they are assigned to a lead """
     lead = Lead.objects.get(id=lead_id)
     created_by = lead.created_by
+    blocked_domains = BlockedDomain.objects.values_list("domain", flat=True)
+    blocked_emails = BlockedEmail.objects.values_list("email", flat=True)
     for user in recipients:
         recipients_list = []
-        profile = Profile.objects.filter(id=user, is_active=True).first()
-        if profile:
-            recipients_list.append(profile.user.email)
-            context = {}
-            context["url"] = settings.DOMAIN_NAME
-            context["user"] = profile.user
-            context["lead"] = lead
-            context["created_by"] = created_by
-            context["source"] = source
-            subject = "Assigned a lead for you. "
-            html_content = render_to_string(
-                "assigned_to/leads_assigned.html", context=context
-            )
-            msg = EmailMessage(subject, html_content, to=recipients_list)
-            msg.content_subtype = "html"
-            msg.send()
+        user = User.objects.filter(id=user, is_active=True).first()
+        if user:
+            if (user.email not in blocked_emails) and (
+                user.email.split("@")[-1] not in blocked_domains
+            ):
+                recipients_list.append(user.email)
+                context = {}
+                context["url"] = (
+                    protocol
+                    + "://"
+                    + domain
+                    + reverse("leads:view_lead", args=(lead.id,))
+                )
+                context["user"] = user
+                context["lead"] = lead
+                context["created_by"] = created_by
+                context["source"] = source
+                subject = "Assigned a lead for you. "
+                html_content = render_to_string(
+                    "assigned_to/leads_assigned.html", context=context
+                )
+                msg = EmailMessage(subject, html_content, to=recipients_list)
+                msg.content_subtype = "html"
+                msg.send()
 
 
-@app.task
-def create_lead_from_file(validated_rows, invalid_rows, user_id, source, company_id):
+@task
+def create_lead_from_file(validated_rows, invalid_rows, user_id, source):
     """Parameters : validated_rows, invalid_rows, user_id.
     This function is used to create leads from a given file.
     """
     email_regex = "^[_a-zA-Z0-9-]+(\.[_a-zA-Z0-9-]+)*@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*(\.[a-zA-Z]{2,4})$"
-    profile = Profile.objects.get(id=user_id)
-    org = Org.objects.filter(id=company_id).first()
+    user = User.objects.get(id=user_id)
     for row in validated_rows:
         if not Lead.objects.filter(title=row.get("title")).exists():
             if re.match(email_regex, row.get("email")) is not None:
@@ -127,23 +138,19 @@ def create_lead_from_file(validated_rows, invalid_rows, user_id, source, company
                     lead.status = row.get("status", "")
                     lead.account_name = row.get("account_name", "")[:255]
                     lead.created_from_site = False
-                    lead.created_by = profile
-                    lead.org = org
+                    lead.created_by = user
                     lead.save()
-                except Exception as e:
+                except e:
                     print(e)
 
 
-@app.task
+@task
 def update_leads_cache():
     queryset = (
         Lead.objects.all()
         .exclude(status="converted")
         .select_related("created_by")
-        .prefetch_related(
-            "tags",
-            "assigned_to",
-        )
+        .prefetch_related("tags", "assigned_to",)
     )
     open_leads = queryset.exclude(status="closed")
     close_leads = queryset.filter(status="closed")

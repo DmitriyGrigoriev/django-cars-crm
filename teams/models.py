@@ -1,28 +1,33 @@
 import arrow
+
 from django.db import models
+from common.models import User, Company
 from django.utils.translation import gettext_lazy as _
 
-from common.models import Org, Profile
-from common.base import BaseModel
 
-
-
-class Teams(BaseModel):
+class Teams(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
-    users = models.ManyToManyField(Profile, related_name="user_teams")
+    users = models.ManyToManyField(User, related_name="user_teams")
     created_on = models.DateTimeField(_("Created on"), auto_now_add=True)
-    org = models.ForeignKey(Org, on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        related_name="teams_created",
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
 
-    class Meta:
-        verbose_name = "Team"
-        verbose_name_plural = "Teams"
-        db_table = "teams"
-        ordering = ("-created_at",)
+    company = models.ForeignKey(
+        Company, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     def __str__(self):
-        return f"{self.name}"
-    
+        return self.name
+
+    class Meta:
+        ordering = ("id",)
+
     @property
     def created_on_arrow(self):
         return arrow.get(self.created_on).humanize()

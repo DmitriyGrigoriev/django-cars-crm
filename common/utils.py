@@ -2,29 +2,6 @@ import pytz
 from django.utils.translation import gettext_lazy as _
 
 
-def jwt_payload_handler(user):
-    """Custom payload handler
-    Token encrypts the dictionary returned by this function, and can be
-    decoded by rest_framework_jwt.utils.jwt_decode_handler
-    """
-    return {
-        "id": user.pk,
-        # 'name': user.name,
-        "email": user.email,
-        # "role": user.role,
-        # "has_sales_access": user.has_sales_access,
-        # "has_marketing_access": user.has_marketing_access,
-        "file_prepend": user.file_prepend,
-        "username": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "is_active": user.is_active,
-        # "is_admin": user.is_admin,
-        "is_staff": user.is_staff,
-        # "date_joined"
-    }
-
-
 INDCHOICES = (
     ("ADVERTISING", "ADVERTISING"),
     ("AGRICULTURE", "AGRICULTURE"),
@@ -616,9 +593,4 @@ def append_str_to(append_to: str, *args, sep=", ", **kwargs):
     """
     append_to = append_to or ""
     result_list = [append_to] + list(args) + list(kwargs.values())
-    data = False
-    for item in result_list:
-        if item:
-            data = True
-            break
-    return f"{sep}".join(filter(len, result_list)) if data else ""
+    return f"{sep}".join(filter(len, result_list))

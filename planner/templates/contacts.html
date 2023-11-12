@@ -17,13 +17,13 @@
     </tr>
   </thead>
   <tbody>
-    {% ifequal contacts|length  0 %}
+    {% if contacts|length == 0 %}
     <tr>
       <td class="cell">
         NO CONTACTS FOUND!!
       </td>
     </tr>
-    {% endifequal %}
+    {% endif %}
     {% for contact in contacts %}
     <tr>
       <td class="cell">

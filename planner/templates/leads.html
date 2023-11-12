@@ -17,13 +17,13 @@
     </tr>
   </thead>
   <tbody>
-    {% ifequal leads|length  0 %}
+    {% if leads|length == 0 %}
     <tr>
       <td class="cell">
         NO LEADS FOUND!!
       </td>
     </tr>
-    {% endifequal %}
+    {% endif %}
     {% for lead in leads %}
     <tr>
       <td class="cell">

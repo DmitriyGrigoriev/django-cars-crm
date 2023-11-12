@@ -1,18 +1,14 @@
-import datetime
-
 import arrow
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from phonenumber_field.modelfields import PhoneNumberField
-
-from accounts.models import Account
-from common.models import Address, Org, User
-from common.base import BaseModel
+from common.models import Address, User, Company
 from common.utils import CURRENCY_CODES
+from accounts.models import Account
+from phonenumber_field.modelfields import PhoneNumberField
 from teams.models import Teams
 
 
-class Invoice(BaseModel):
+class Invoice(models.Model):
     """Model definition for Invoice."""
 
     INVOICE_STATUS = (
@@ -45,11 +41,11 @@ class Invoice(BaseModel):
     total_amount = models.DecimalField(
         blank=True, null=True, max_digits=12, decimal_places=2
     )
-    tax = models.DecimalField(blank=True, null=True, max_digits=12, decimal_places=2)
     currency = models.CharField(
         max_length=3, choices=CURRENCY_CODES, blank=True, null=True
     )
     phone = PhoneNumberField(null=True, blank=True)
+    created_on = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         User, related_name="invoice_created_by", on_delete=models.SET_NULL, null=True
     )
@@ -67,34 +63,19 @@ class Invoice(BaseModel):
     accounts = models.ManyToManyField(Account, related_name="accounts_invoices")
     teams = models.ManyToManyField(Teams, related_name="invoices_teams")
 
-    org = models.ForeignKey(Org, on_delete=models.SET_NULL, null=True, blank=True)
-    tax = models.DecimalField(blank=True, null=True, max_digits=12, decimal_places=2)
+    company = models.ForeignKey(
+        Company, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     class Meta:
+        """Meta definition for Invoice."""
+
         verbose_name = "Invoice"
         verbose_name_plural = "Invoices"
-        db_table = "invoice"
-        ordering = ("-created_at",)
 
     def __str__(self):
         """Unicode representation of Invoice."""
-        return f"{self.invoice_number}"
-
-    def save(self, *args, **kwargs):
-        if not self.invoice_number:
-            self.invoice_number = self.invoice_id_generator()
-            while Invoice.objects.filter(invoice_number=self.invoice_number).exists():
-                self.invoice_number = self.invoice_id_generator(
-                    prev_invoice_number=self.invoice_number
-                )
-        super(Invoice, self).save(*args, **kwargs)
-
-    def invoice_id_generator(self, prev_invoice_number=None):
-        if prev_invoice_number:
-            prev_invoice_number += 1
-            return prev_invoice_number
-        date = datetime.datetime.now().strftime("%d%m%Y")
-        return int(date + "0001")
+        return self.invoice_number
 
     def formatted_total_amount(self):
         return self.currency + " " + str(self.total_amount)
@@ -131,7 +112,7 @@ class Invoice(BaseModel):
 
     @property
     def created_on_arrow(self):
-        return arrow.get(self.created_at).humanize()
+        return arrow.get(self.created_on).humanize()
 
     @property
     def get_team_users(self):
@@ -153,7 +134,7 @@ class Invoice(BaseModel):
         return User.objects.filter(id__in=list(user_ids))
 
 
-class InvoiceHistory(BaseModel):
+class InvoiceHistory(models.Model):
     """Model definition for InvoiceHistory.
     This model is used to track/keep a record of the updates made to original invoice object."""
 
@@ -198,6 +179,7 @@ class InvoiceHistory(BaseModel):
         max_length=3, choices=CURRENCY_CODES, blank=True, null=True
     )
     phone = PhoneNumberField(null=True, blank=True)
+    created_on = models.DateTimeField(auto_now_add=True)
     # created_by = models.ForeignKey(
     #     User, related_name='invoice_history_created_by',
     #     on_delete=models.SET_NULL, null=True)
@@ -220,12 +202,6 @@ class InvoiceHistory(BaseModel):
     details = models.TextField(_("Details"), null=True, blank=True)
     due_date = models.DateField(blank=True, null=True)
 
-    class Meta:
-        verbose_name = "InvoiceHistory"
-        verbose_name_plural = "InvoiceHistories"
-        db_table = "invoice_history"
-        ordering = ("-created_at",)
-
     def __str__(self):
         """Unicode representation of Invoice."""
         return self.invoice_number
@@ -241,4 +217,7 @@ class InvoiceHistory(BaseModel):
 
     @property
     def created_on_arrow(self):
-        return arrow.get(self.created_at).humanize()
+        return arrow.get(self.created_on).humanize()
+
+    class Meta:
+        ordering = ("created_on",)

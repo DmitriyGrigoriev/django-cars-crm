@@ -1,10 +1,9 @@
 from django.db import models
-from common.base import BaseModel
 
 # Create your models here.
 
 
-class Email(BaseModel):
+class Email(models.Model):
 
     from_email = models.EmailField(max_length=200)
     to_email = models.EmailField(max_length=200)
@@ -16,11 +15,8 @@ class Email(BaseModel):
     status = models.CharField(max_length=200, default="sent")
     important = models.BooleanField(max_length=10, default=False)
 
-    class Meta:
-        verbose_name = "Email"
-        verbose_name_plural = "Emails"
-        db_table = "email"
-        ordering = ("-created_at",)
-
     def __str__(self):
-        return f"{self.message_subject}"
+        return self.subject
+
+    class Meta:
+        ordering = ["-id"]

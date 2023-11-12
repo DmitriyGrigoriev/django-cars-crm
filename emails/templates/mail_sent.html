@@ -100,7 +100,7 @@
               {% endfor %}
             </tbody>
           </table>
-          {% ifequal filter_list|length 0 %}
+          {% if filter_list|length == 0 %}
           <h4>
             <center>No Mails Found</center>
           </h4>
@@ -112,7 +112,7 @@
               </ul>
             </nav>
           </div>
-          {%endifequal%}
+          {%endif%}
         </div>
       </div>
     </div>

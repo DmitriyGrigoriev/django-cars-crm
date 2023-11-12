@@ -1,31 +1,14 @@
 import os
-from datetime import timedelta
-
-from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
-
-# JWT_AUTH = {
-#     'JWT_PAYLOAD_GET_USERNAME_HANDLER':
-#     'path.to.custom_jwt_payload_handler',
-#     'JWT_PUBLIC_KEY': None,
-#     'JWT_PRIVATE_KEY': None,
-#     'JWT_ALGORITHM': 'HS256',
-#     'JWT_VERIFY': True,
-#     'JWT_VERIFY_EXPIRATION': True,
-#     'JWT_LEEWAY': 0,
-#     'JWT_EXPIRATION_DELTA': timedelta(seconds=300),
-#     'JWT_AUDIENCE': None,
-#     'JWT_ISSUER': None,
-#     'JWT_ALLOW_REFRESH': False,
-#     'JWT_REFRESH_EXPIRATION_DELTA': timedelta(days=7),
-#     'JWT_AUTH_HEADER_PREFIX': 'Bearer',
-#     'JWT_BEARER_FORMAT': 'Bearer'
-# }
+from pathlib import Path
+from celery.schedules import crontab
+from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-load_dotenv()
+env_path = Path(".") / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ["SECRET_KEY"]
@@ -33,36 +16,37 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-
+#ALLOWED_HOSTS = [".bottlecrm.com", ".localhost"]
 ALLOWED_HOSTS = ["*"]
 
-INSTALLED_APPS = [
-    "wagtail.contrib.forms",
-    "wagtail.contrib.redirects",
-    "wagtail.embeds",
-    "wagtail.sites",
-    "wagtail.users",
-    "wagtail.snippets",
-    "wagtail.documents",
-    "wagtail.images",
-    "wagtail.search",
-    "wagtail.admin",
-    "wagtail",
-    "cms",
-    "wagtail.contrib.settings",
-    "modelcluster",
-    "taggit",
+# Application definition
+
+LOGIN_REDIRECT_URL = "/"
+
+# LOGIN_URL = "/login/"
+LOGIN_URL = "/auth/domain/"
+
+DJANGO_APPS = [
+    "jazzmin",
+    "django.contrib.admin",
+
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.messages",
     "django.contrib.sessions",
     "django.contrib.staticfiles",
+]
+THIRD_PARTY_APPS = [
+    "sass_processor",
+    "simple_pagination",
+    'telegram_django_bot',
+    "compressor",
+    # 'haystack',
+    "sorl.thumbnail",
     "phonenumber_field",
-    "rest_framework",
-    "rest_framework_simplejwt",
-    "corsheaders",
-    "django_ses",
-    "drf_spectacular",
+    "storages",
+]
+LOCAL_APPS = [
     "common",
     "accounts",
     "cases",
@@ -71,24 +55,24 @@ INSTALLED_APPS = [
     "leads",
     "opportunity",
     "planner",
+    "marketing",
     "tasks",
     "invoices",
     "events",
     "teams",
 ]
 
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
-    "crum.CurrentRequestUserMiddleware",
-    # "common.middleware.get_company.GetProfileAndOrg",
-    "wagtail.contrib.redirects.middleware.RedirectMiddleware",
+    "common.middleware.get_company.GetCompany",
 ]
 
 ROOT_URLCONF = "crm.urls"
@@ -96,9 +80,7 @@ ROOT_URLCONF = "crm.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [
-            os.path.join(BASE_DIR, "templates"),
-        ],
+        "DIRS": [os.path.join(BASE_DIR, "templates"),],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -107,8 +89,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "common.context_processors.common.app_name",
-                # "django_settings_export.settings_export",
-                "wagtail.contrib.settings.context_processors.settings",
+                "django_settings_export.settings_export",
             ],
         },
     },
@@ -122,14 +103,20 @@ WSGI_APPLICATION = "crm.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["DBNAME"],
-        "USER": os.environ["DBUSER"],
-        "PASSWORD": os.environ["DBPASSWORD"],
-        "HOST": os.environ["DBHOST"],
-        "PORT": os.environ["DBPORT"],
+        "NAME": os.getenv("DBNAME"),
+        "USER": os.getenv("DBUSER"),
+        "PASSWORD": os.getenv("DBPASSWORD"),
+        "HOST": os.getenv("DBHOST"),
+        "PORT": os.getenv("DBPORT"),
     }
 }
 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+#STATIC_URL = "/static/"
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static"),
+    os.path.join(BASE_DIR, "blog_app/static"),
+]
 
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
@@ -138,62 +125,201 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",},
 ]
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.10/topics/i18n/
 
+LANGUAGE_CODE = "ru"
 
-TIME_ZONE = "Asia/Kolkata"
+TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
 
+USE_L10N = True
+
 USE_TZ = True
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+LANGUAGES = [
+    ('ru', _('Russian')),
+    ('en', _('English'))
+]
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/1.10/howto/static-files/
+
+#STATIC_URL = "/static/"
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# EMAIL_HOST = 'localhost'
+# EMAIL_PORT = 25
+# AUTHENTICATION_BACKENDS = ('django.contrib.auth.backends.ModelBackend', )
+
+
+EMAIL_HOST = "smtp.sendgrid.net"
+EMAIL_HOST_USER = os.getenv("SG_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("SG_PWD", "")
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
 
 AUTH_USER_MODEL = "common.User"
 
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-STATIC_URL = "/static/"
-STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+ENV_TYPE = os.getenv("ENV_TYPE", "dev")
 
-ENV_TYPE = os.environ["ENV_TYPE"]
-print(">>> ENV_TYPE", ENV_TYPE)
 if ENV_TYPE == "dev":
+    DOMAIN_NAME = "localhost:8000"
+    FILE_CHARSET = "cp1251"
+    # SESSION_COOKIE_DOMAIN = "localhost:8000"
+
+    # DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    # STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    # COMPRESS_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
     MEDIA_ROOT = os.path.join(BASE_DIR, "media")
     MEDIA_URL = "/media/"
-elif ENV_TYPE == "prod":
+
+    STATIC_URL = "/static/"
+    STATICFILES_DIRS = (BASE_DIR + "/static",)
+    # COMPRESS_ROOT = BASE_DIR + "/static/"
+    COMPRESS_ROOT = STATIC_ROOT
+
+    ADMIN_MEDIA_PREFIX = STATIC_URL + "admin/"
+
+
+elif ENV_TYPE == "live":
     from .server_settings import *
 
-DEFAULT_FROM_EMAIL = os.environ["DEFAULT_FROM_EMAIL"]
+    SESSION_COOKIE_DOMAIN = ".bottlecrm.com"
+
+
+# CORS_ORIGIN_ALLOW_ALL = True
+
+# COMPRESS_ROOT = BASE_DIR + "/static/"
+COMPRESS_JS_FILTERS = ["compressor.filters.jsmin.JSMinFilter"]
+COMPRESS_FILTERS = {
+    "css": [
+        "compressor.filters.css_default.CssAbsoluteFilter",
+        "compressor.filters.cssmin.rCSSMinFilter",
+    ],
+}
+COMPRESS_ENABLED = True
+COMPRESS_OFFLINE = True
+# COMPRESS_COMPILERS = (
+#     'text/x-scss', 'django_libsass.SassCompiler',
+# )
+COMPRESS_OFFLINE_CONTEXT = {
+    "STATIC_URL": "STATIC_URL",
+}
+
+STATICFILES_FINDERS = (
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+    "compressor.finders.CompressorFinder",
+)
+
+COMPRESS_CSS_FILTERS = [
+    "compressor.filters.css_default.CssAbsoluteFilter",
+    "compressor.filters.cssmin.CSSMinFilter",
+]
+
+COMPRESS_REBUILD_TIMEOUT = 5400
+
+
+COMPRESS_OUTPUT_DIR = "CACHE"
+COMPRESS_URL = STATIC_URL
+
+COMPRESS_PRECOMPILERS = (
+    ("text/less", "lessc {infile} {outfile}"),
+    ("text/x-sass", "sass {infile} {outfile}"),
+    ("text/x-scss", "sass {infile} {outfile}"),
+)
+
+COMPRESS_OFFLINE_CONTEXT = {
+    "STATIC_URL": "STATIC_URL",
+}
+
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
 
-
 # celery Tasks
-CELERY_BROKER_URL = os.environ["CELERY_BROKER_URL"]
-CELERY_RESULT_BACKEND = os.environ["CELERY_RESULT_BACKEND"]
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
+
+CELERY_BEAT_SCHEDULE = {
+    "runs-campaign-for-every-thiry-minutes": {
+        "task": "marketing.tasks.run_all_campaigns",
+        "schedule": crontab(minute=30, hour="*"),
+    },
+    "runs-campaign-for-every-five-minutes": {
+        "task": "marketing.tasks.list_all_bounces_unsubscribes",
+        "schedule": crontab(minute="*/5"),
+    },
+    "runs-scheduled-campaigns-for-every-one-hour": {
+        "task": "marketing.tasks.send_scheduled_campaigns",
+        "schedule": crontab(hour="*/1"),
+    },
+    "runs-scheduled-emails-for-accounts-every-one-minute": {
+        "task": "accounts.tasks.send_scheduled_emails",
+        "schedule": crontab(minute="*/1"),
+    },
+}
+
+MAIL_SENDER = "AMAZON"
+# INACTIVE_MAIL_SENDER = "MANDRILL"
+
+AM_ACCESS_KEY = os.getenv("AWSACCESSKEYID", "")
+AM_PASS_KEY = os.getenv("AWSSECRETACCESSKEY", "")
+AWS_REGION = os.getenv("AWS_REGION", "")
+
+# MGUN_API_URL = os.getenv("MGUN_API_URL", "")
+# MGUN_API_KEY = os.getenv("MGUN_API_KEY", "")
+
+# SG_USER = os.getenv("SG_USER", "")
+# SG_PWD = os.getenv("SG_PWD", "")
+
+# MANDRILL_API_KEY = os.getenv("MANDRILL_API_KEY", "")
+
+
+# Marketing app related
+# URL_FOR_LINKS = os.getenv("URLFORLINKS")
+
+
+# GP_CLIENT_ID = os.getenv("GP_CLIENT_ID", False)
+# GP_CLIENT_SECRET = os.getenv("GP_CLIENT_SECRET", False)
+# ENABLE_GOOGLE_LOGIN = os.getenv("ENABLE_GOOGLE_LOGIN", False)
+
+MARKETING_REPLY_EMAIL = os.getenv("MARKETINGREPLYEMAIL")
+
+PASSWORD_RESET_TIMEOUT_DAYS = 3
+
+SENTRY_ENABLED = os.getenv("SENTRY_ENABLED", False)
+
+if SENTRY_ENABLED and not DEBUG:
+    if os.getenv("SENTRYDSN") is not None:
+        RAVEN_CONFIG = {
+            "dsn": os.getenv("SENTRYDSN", ""),
+        }
+        INSTALLED_APPS = INSTALLED_APPS + [
+            "raven.contrib.django.raven_compat",
+        ]
+        MIDDLEWARE = [
+            "raven.contrib.django.raven_compat.middleware.Sentry404CatchMiddleware",
+            "raven.contrib.django.raven_compat.middleware.SentryResponseErrorIdMiddleware",
+        ] + MIDDLEWARE
 
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "filters": {
-        "require_debug_false": {
-            "()": "django.utils.log.RequireDebugFalse",
-        },
-        "require_debug_true": {
-            "()": "django.utils.log.RequireDebugTrue",
-        },
+        "require_debug_false": {"()": "django.utils.log.RequireDebugFalse",},
+        "require_debug_true": {"()": "django.utils.log.RequireDebugTrue",},
     },
     "formatters": {
         "django.server": {
@@ -222,18 +348,11 @@ LOGGING = {
             "filters": ["require_debug_false"],
             "class": "django.utils.log.AdminEmailHandler",
         },
-        "logfile": {
-            "class": "logging.FileHandler",
-            "filename": "server.log",
-        },
+        "logfile": {"class": "logging.FileHandler", "filename": "server.log",},
     },
     "loggers": {
         "django": {
-            "handlers": [
-                "console",
-                "console_debug_false",
-                "logfile",
-            ],
+            "handlers": ["console", "console_debug_false", "logfile",],
             "level": "INFO",
         },
         "django.server": {
@@ -243,85 +362,76 @@ LOGGING = {
         },
     },
 }
+# HAYSTACK_CONNECTIONS = {
+#     'default': {
+#         # 'ENGINE': 'haystack.backends.elasticsearch_backend.ElasticsearchSearchEngine',
+#         'ENGINE': 'marketing.search_backends.CustomElasticsearchSearchEngine',
+#         'URL': 'http://127.0.0.1:9200/',
+#         'INDEX_NAME': 'haystack',
+#     },
+# }
+
+# HAYSTACK_SIGNAL_PROCESSOR = 'haystack.signals.RealtimeSignalProcessor'
+
+# HAYSTACK_SEARCH_RESULTS_PER_PAGE = 10
+
+# ELASTICSEARCH_INDEX_SETTINGS = {
+#     "settings": {
+#         "analysis": {
+#             "analyzer": {
+#                 "ngram_analyzer": {
+#                     "type": "custom",
+#                     "tokenizer": "custom_ngram_tokenizer",
+#                     "filter": ["asciifolding", "lowercase"]
+#                 },
+#                 "edgengram_analyzer": {
+#                     "type": "custom",
+#                     "tokenizer": "custom_edgengram_tokenizer",
+#                     "filter": ["asciifolding", "lowercase"]
+#                 }
+#             },
+#             "tokenizer": {
+#                 "custom_ngram_tokenizer": {
+#                     "type": "nGram",
+#                     "min_gram": 3,
+#                     "max_gram": 12,
+#                     "token_chars": ["letter", "digit"]
+#                 },
+#                 "custom_edgengram_tokenizer": {
+#                     "type": "edgeNGram",
+#                     "min_gram": 2,
+#                     "max_gram": 12,
+#                     "token_chars": ["letter", "digit"]
+#                 }
+#             }
+#         }
+#     }
+# }
+
+# HAYSTACK_DEFAULT_OPERATOR = 'AND'
 
 APPLICATION_NAME = "bottlecrm"
 
-WAGTAIL_SITE_NAME = "bottlecrm"
 
-WAGTAILADMIN_BASE_URL = "https://bottlecrm.com"
-
-SETTINGS_EXPORT = ["APPLICATION_NAME"]
-
-REST_FRAMEWORK = {
-    "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-        # "rest_framework.authentication.SessionAuthentication",
-        # "rest_framework.authentication.BasicAuthentication",
-    ),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
-    "PAGE_SIZE": 10,
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-}
-
-
-SPECTACULAR_SETTINGS = {
-    "TITLE": "BottleCRM API",
-    "DESCRIPTION": "Open source CRM application",
-    "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": False,
-    "COMPONENT_SPLIT_REQUEST": True,
-    "PREPROCESSING_HOOKS": ["common.custom_openapi.preprocessing_filter_spec"],
-    
-}
-
-# JWT_SETTINGS = {
-#     'bearerFormat': ('Bearer', 'jwt', 'Jwt')
+# CACHES = {
+#     "default": {
+#         "BACKEND": "django.core.cache.backends.memcached.PyMemcacheCache",
+#         "LOCATION": os.getenv("MEMCACHELOCATION"),
+#     }
 # }
 
-SWAGGER_SETTINGS = {
-    "DEFAULT_INFO": "crm.urls.info",
-    "SECURITY_DEFINITIONS": {
-        "api_key": {"type": "apiKey", "name": "Authorization", "in": "header"},
-    },
-}
+PASSWORD_RESET_MAIL_FROM_USER = os.getenv("PASSWORD_RESET_MAIL_FROM_USER")
 
-CORS_ALLOW_HEADERS = default_headers + ("org",)
-CORS_ORIGIN_ALLOW_ALL = True
-CSRF_TRUSTED_ORIGINS = ["https://*.runcode.io", "http://*"]
 
-SECURE_HSTS_SECONDS = 3600
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-
+SETTINGS_EXPORT = ["APPLICATION_NAME"]
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-# STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+################################################################################
+# Import django-jazzmin settings
+################################################################################
+from crm.jazzmin import JAZZMIN_SETTINGS
 
-DOMAIN_NAME = os.getenv("DOMAIN_NAME")
-
-
-SIMPLE_JWT = {
-    #'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1),
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=365),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "UPDATE_LAST_LOGIN": False,
-    "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
-    "VERIFYING_KEY": None,
-    "AUDIENCE": None,
-    "ISSUER": None,
-    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
-    "USER_ID_FIELD": "id",
-    "USER_ID_CLAIM": "user_id",
-}
-# it is needed in custome middlewere to get the user from the token
-JWT_ALGO = "HS256"
-
-
-DOMAIN_NAME = os.environ["DOMAIN_NAME"]
-SWAGGER_ROOT_URL = os.environ["SWAGGER_ROOT_URL"]
+################################################################################
+# Import telegram settings
+################################################################################
+from crm.telegram import *

@@ -61,7 +61,7 @@
                     <select class="assigned_users form-control" name="assigned_to" multiple="multiple">
                       {% for user in users %}
                       <option value="{{user.id}}" {% if user.id|slugify in assigned_to %} selected="" {% endif %}>
-                        {% if user.email %}{{user.email}}{% else %}{{user.email}}{% endif %}</option>
+                        {% if user.username %}{{user.username}}{% else %}{{user.email}}{% endif %}</option>
                       {% endfor %}
                     </select>
                   </div>
@@ -73,7 +73,7 @@
                       <option value="">--Status of Invoice--</option>
                       {% for each_status in status %}
                       <option value="{{each_status.0}}" {% if request.POST.status %}
-                        {% ifequal each_status.0 request.POST.status %}selected{% endifequal %}{% endif %}>
+                        {% if each_status.0 == request.POST.status %}selected{% endif %}{% endif %}>
                         {{each_status.1}} </option>
                       {% endfor%}
                     </select>
@@ -141,9 +141,9 @@
                       {% endif %}
                       {% for invoice in invoices %}
                       {% if invoice.due_date < today %}
-                      <tr class="text-center">
+                      <tr class="text-center due_date">
                         <td scope="row" >{{ forloop.counter }}</td>
-                        <td><a href="#" data-toggle="modal" data-target="#exampleModalCenter_invoice{{invoice.id}}">
+                        <td><a style="color: red;" href="#" data-toggle="modal" data-target="#exampleModalCenter_invoice{{invoice.id}}">
                             {{ invoice.invoice_title }} </a></td>
                         <td>{{ invoice.invoice_number }} </td>
                         <td>{{ invoice.email }} </td>
@@ -301,9 +301,9 @@
                     </tbody>
                   </table>
                 </div>
-                {%ifequal invoices|length 0%}
+                {%if invoices|length == 0%}
                 <h6 class="text-center">No Invoices Found</h6>
-                {%endifequal%}
+                {%endif%}
                 <div class="marl row text-center">
                   {% show_pages %}
                 </div>
