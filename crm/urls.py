@@ -1,5 +1,6 @@
 import os
 
+from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views
@@ -12,6 +13,8 @@ from rest_framework import permissions
 from wagtail import urls as wagtail_urls
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail.documents import urls as wagtaildocs_urls
+from django.views.generic import RedirectView
+from invoices import urls as invoice_urls
 
 openapi_info = openapi.Info(
     title="Crm API",
@@ -48,12 +51,18 @@ urlpatterns = [
         r"^redoc/$", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"
     ),
     path("api/", include("common.app_urls", namespace="common_urls")),
+    # path("common/", include("common.urls", namespace="api_common")),
     path(
         "logout/", views.LogoutView.as_view(), {"next_page": "/login/"}, name="logout"
     ),
-    path('admin/', include(wagtailadmin_urls)),
+    path('cms-admin/', include(wagtailadmin_urls)),
+    path('jp-admin/', admin.site.urls),
+
+    # path('', RedirectView.as_view(url='jp-admin/'), name="jp-admin-site"),
     path('documents/', include(wagtaildocs_urls)),
-    path('', include(wagtail_urls))
+    # path('', include(wagtail_urls)),
+
+    path('invoice/', include(invoice_urls, namespace="invoice_urls"))
 
 ]
 

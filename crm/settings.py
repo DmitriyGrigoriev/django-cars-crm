@@ -38,6 +38,9 @@ INSTALLED_APPS = [
     'modelcluster',
     'taggit',
 
+    "jazzmin",
+    "django.contrib.admin",
+
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.messages",
@@ -302,3 +305,7 @@ JWT_ALGO = "HS256"
 DOMAIN_NAME = os.environ["DOMAIN_NAME"]
 SWAGGER_ROOT_URL = os.environ["SWAGGER_ROOT_URL"]
 
+################################################################################
+# Import django-jazzmin settings
+################################################################################
+from crm.jazzmin import JAZZMIN_SETTINGS

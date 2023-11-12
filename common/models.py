@@ -75,6 +75,9 @@ class Address(models.Model):
 
 
 class Org(models.Model):
+    def __str__(self):
+        return self.name if self.name else ""
+
     name = models.CharField(max_length=100, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     user_limit = models.IntegerField(default=5)
@@ -90,6 +93,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     alternate_email = models.EmailField(max_length=255, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    role = models.CharField(
+        choices=[("ADMIN", "ADMIN"), ("USER", "USER")], max_length=50
+    )
     date_joined = models.DateTimeField(("date joined"), auto_now_add=True)
     profile_pic = models.FileField(
         max_length=1000, upload_to=img_url, null=True, blank=True
@@ -156,6 +162,9 @@ class Profile(models.Model):
     is_active = models.BooleanField(default=True)
     is_organization_admin = models.BooleanField(default=False)
     date_of_joining = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return self.user.get_full_name()
 
     class Meta:
         unique_together = (("user", "org"),)
