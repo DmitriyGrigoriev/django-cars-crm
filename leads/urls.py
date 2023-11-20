@@ -1,4 +1,5 @@
 from django.urls import path
+
 from leads.views import (
     LeadListView,
     create_lead,

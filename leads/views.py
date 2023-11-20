@@ -1,4 +1,6 @@
 import json
+import logging
+from smtplib import SMTPException
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -40,6 +42,7 @@ from django.core.cache import cache
 from django.db.models.functions import Concat
 from django.db.models import Value as V
 
+logger = logging.getLogger(__name__)
 
 @login_required
 def get_teams_and_users(request):
@@ -800,7 +803,11 @@ def convert_lead(request, pk):
             )
             email = EmailMessage(mail_subject, message, to=[user.email])
             email.content_subtype = "html"
-            email.send()
+            try:
+                email.send()
+            except SMTPException as e:
+                logger.exception(e)
+
         return redirect("accounts:list")
 
     return HttpResponseRedirect(

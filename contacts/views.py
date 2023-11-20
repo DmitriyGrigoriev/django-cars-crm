@@ -2,10 +2,8 @@ import json
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.decorators import login_required
-from django.core.mail import EmailMessage
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.generic import CreateView, UpdateView, DetailView, TemplateView, View
 from common.models import User, Comment, Attachments
@@ -25,7 +23,7 @@ from common.access_decorators_mixins import (
     MarketingAccessRequiredMixin,
 )
 from teams.models import Teams
-
+from common.utils import is_ajax
 
 @login_required
 def get_teams_and_users(request):
@@ -130,6 +128,7 @@ class CreateContactView(SalesAccessRequiredMixin, LoginRequiredMixin, CreateView
             contact_obj.created_by = self.request.user
             contact_obj.company = self.request.company
             contact_obj.save()
+
             if self.request.GET.get("view_account", None):
                 if Account.objects.filter(
                     id=int(self.request.GET.get("view_account"))
@@ -192,7 +191,7 @@ class CreateContactView(SalesAccessRequiredMixin, LoginRequiredMixin, CreateView
             attachment.attachment = self.request.FILES.get("contact_attachment")
             attachment.save()
 
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             return JsonResponse({"error": False})
         if self.request.POST.get("savenewform"):
             return redirect("contacts:add_contact")
@@ -201,7 +200,7 @@ class CreateContactView(SalesAccessRequiredMixin, LoginRequiredMixin, CreateView
 
     def form_invalid(self, form):
         address_form = BillingAddressForm(self.request.POST)
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             return JsonResponse(
                 {
                     "error": True,
@@ -409,14 +408,14 @@ class UpdateContactView(SalesAccessRequiredMixin, LoginRequiredMixin, UpdateView
         if self.request.POST.get("from_account"):
             from_account = self.request.POST.get("from_account")
             return redirect("accounts:view_account", pk=from_account)
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             return JsonResponse({"error": False})
         return redirect("contacts:list")
 
     def form_invalid(self, form):
         address_obj = self.object.address
         address_form = BillingAddressForm(self.request.POST, instance=address_obj)
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             return JsonResponse(
                 {
                     "error": True,
@@ -478,7 +477,7 @@ class RemoveContactView(SalesAccessRequiredMixin, LoginRequiredMixin, View):
             if self.object.address_id:
                 self.object.address.delete()
             self.object.delete()
-            if self.request.is_ajax():
+            if is_ajax(self.request):
                 return JsonResponse({"error": False})
             return redirect("contacts:list")
 

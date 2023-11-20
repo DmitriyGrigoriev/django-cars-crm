@@ -16,6 +16,7 @@ from common.templatetags.common_tags import (
     is_document_file_sheet,
     is_document_file_zip,
 )
+from crm.settings import LANGUAGE_CODE
 from common.utils import COUNTRIES, ROLES
 from django.utils import timezone
 from django.conf import settings
@@ -101,7 +102,7 @@ class Address(models.Model):
     postcode = models.CharField(
         _("Post/Zip-code"), max_length=64, blank=True, null=True
     )
-    country = models.CharField(max_length=3, choices=COUNTRIES, blank=True, null=True)
+    country = models.CharField(max_length=3, choices=COUNTRIES, default=LANGUAGE_CODE.upper(), blank=True, null=True)
 
     def __str__(self):
         return self.city if self.city else ""

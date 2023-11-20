@@ -14,6 +14,7 @@ from django.contrib.auth.hashers import check_password
 from django.contrib.auth.mixins import AccessMixin, LoginRequiredMixin
 from django.contrib.auth.views import PasswordResetView
 from django.contrib.sites.shortcuts import get_current_site
+from django.shortcuts import render
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.core.mail import EmailMessage
@@ -76,6 +77,7 @@ from leads.models import Lead
 from marketing.models import BlockedDomain, BlockedEmail, ContactEmailCampaign
 from opportunity.models import Opportunity
 from teams.models import Teams
+from common.utils import is_ajax
 
 
 def handler404(request, exception):
@@ -146,6 +148,20 @@ class AdminRequiredMixin(AccessMixin):
 
 class HomeView(SalesAccessRequiredMixin, LoginRequiredMixin, TemplateView):
     template_name = "sales/index.html"
+
+    # def get_template_names(self):
+    #     if self.request.htmx:
+    #         return "sales/partial.html"
+    #
+    #     return super(HomeView, self).get_template_names()
+
+    # def get(self, request, *args, **kwargs):
+    #     context = self.get_context_data(**kwargs)
+    #     if self.request.htmx and self.request.htmx.trigger:
+    #         return render(request, context=context, template_name=self.get_template_names())
+    #
+    #     return self.render_to_response(context)
+
 
     def get_context_data(self, **kwargs):
         context = super(HomeView, self).get_context_data(**kwargs)
@@ -487,14 +503,14 @@ class CreateUserView(AdminRequiredMixin, CreateView):
         # email.content_subtype = "html"
         # email.send()
 
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             data = {"success_url": reverse_lazy("common:users_list"), "error": False}
             return JsonResponse(data)
         return super(CreateUserView, self).form_valid(form)
 
     def form_invalid(self, form):
         response = super(CreateUserView, self).form_invalid(form)
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             return JsonResponse({"error": True, "errors": form.errors})
         return response
 
@@ -559,7 +575,7 @@ class UpdateUserView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         user = form.save(commit=False)
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             if self.request.user.role != "ADMIN" and not self.request.user.is_superuser:
                 if self.request.user.id != self.object.id:
                     data = {"error_403": True, "error": True}
@@ -579,7 +595,7 @@ class UpdateUserView(LoginRequiredMixin, UpdateView):
                 team_obj.users.add(user)
 
         if self.request.user.role == "ADMIN" and self.request.user.is_superuser:
-            if self.request.is_ajax():
+            if is_ajax(self.request):
                 data = {
                     "success_url": reverse_lazy("common:users_list"),
                     "error": False,
@@ -591,14 +607,14 @@ class UpdateUserView(LoginRequiredMixin, UpdateView):
                     }
                     return JsonResponse(data)
                 return JsonResponse(data)
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             data = {"success_url": reverse_lazy("common:profile"), "error": False}
             return JsonResponse(data)
         return super(UpdateUserView, self).form_valid(form)
 
     def form_invalid(self, form):
         response = super(UpdateUserView, self).form_invalid(form)
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             return JsonResponse({"error": True, "errors": form.errors})
         return response
 

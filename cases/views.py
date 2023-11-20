@@ -26,6 +26,7 @@ from common.access_decorators_mixins import (
     MarketingAccessRequiredMixin,
 )
 from teams.models import Teams
+from common.utils import is_ajax
 
 
 @login_required
@@ -478,7 +479,7 @@ class RemoveCaseView(SalesAccessRequiredMixin, LoginRequiredMixin, View):
             or self.request.user == self.object.created_by
         ):
             self.object.delete()
-            if request.is_ajax():
+            if is_ajax(request):
                 return JsonResponse({"error": False})
             count = (
                 Case.objects.filter(

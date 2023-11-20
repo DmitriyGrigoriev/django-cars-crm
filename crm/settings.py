@@ -14,13 +14,12 @@ load_dotenv(dotenv_path=env_path)
 SECRET_KEY = os.environ["SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', default=False)
 
 #ALLOWED_HOSTS = [".bottlecrm.com", ".localhost"]
 ALLOWED_HOSTS = ["*"]
 
 # Application definition
-
 LOGIN_REDIRECT_URL = "/"
 
 # LOGIN_URL = "/login/"
@@ -39,7 +38,9 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "sass_processor",
     "simple_pagination",
-    'telegram_django_bot',
+    "telegram_django_bot",
+    "django_htmx",
+    "template_partials",
     "compressor",
     # 'haystack',
     "sorl.thumbnail",
@@ -68,10 +69,12 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django_htmx.middleware.HtmxMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # "common.middleware.registry_errors.ExceptionMiddleware",
     "common.middleware.get_company.GetCompany",
 ]
 
@@ -91,6 +94,8 @@ TEMPLATES = [
                 "common.context_processors.common.app_name",
                 "django_settings_export.settings_export",
             ],
+            # "builtins": ["template_partials.templatetags.partials"],
+            "debug": DEBUG,
         },
     },
 ]
@@ -112,7 +117,6 @@ DATABASES = {
 }
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-#STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
     os.path.join(BASE_DIR, "blog_app/static"),
@@ -148,33 +152,13 @@ LANGUAGES = [
     ('en', _('English'))
 ]
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/1.10/howto/static-files/
-
-#STATIC_URL = "/static/"
-
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-# EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# EMAIL_HOST = 'localhost'
-# EMAIL_PORT = 25
 # AUTHENTICATION_BACKENDS = ('django.contrib.auth.backends.ModelBackend', )
-
-
-EMAIL_HOST = "smtp.sendgrid.net"
-EMAIL_HOST_USER = os.getenv("SG_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("SG_PWD", "")
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-
 AUTH_USER_MODEL = "common.User"
 
 ENV_TYPE = os.getenv("ENV_TYPE", "dev")
 
 if ENV_TYPE == "dev":
     DOMAIN_NAME = "localhost:8000"
-    FILE_CHARSET = "cp1251"
     # SESSION_COOKIE_DOMAIN = "localhost:8000"
 
     # DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
@@ -200,52 +184,11 @@ elif ENV_TYPE == "live":
 
 # CORS_ORIGIN_ALLOW_ALL = True
 
-# COMPRESS_ROOT = BASE_DIR + "/static/"
-COMPRESS_JS_FILTERS = ["compressor.filters.jsmin.JSMinFilter"]
-COMPRESS_FILTERS = {
-    "css": [
-        "compressor.filters.css_default.CssAbsoluteFilter",
-        "compressor.filters.cssmin.rCSSMinFilter",
-    ],
-}
-COMPRESS_ENABLED = True
-COMPRESS_OFFLINE = True
-# COMPRESS_COMPILERS = (
-#     'text/x-scss', 'django_libsass.SassCompiler',
-# )
-COMPRESS_OFFLINE_CONTEXT = {
-    "STATIC_URL": "STATIC_URL",
-}
-
 STATICFILES_FINDERS = (
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
     "compressor.finders.CompressorFinder",
 )
-
-COMPRESS_CSS_FILTERS = [
-    "compressor.filters.css_default.CssAbsoluteFilter",
-    "compressor.filters.cssmin.CSSMinFilter",
-]
-
-COMPRESS_REBUILD_TIMEOUT = 5400
-
-
-COMPRESS_OUTPUT_DIR = "CACHE"
-COMPRESS_URL = STATIC_URL
-
-COMPRESS_PRECOMPILERS = (
-    ("text/less", "lessc {infile} {outfile}"),
-    ("text/x-sass", "sass {infile} {outfile}"),
-    ("text/x-scss", "sass {infile} {outfile}"),
-)
-
-COMPRESS_OFFLINE_CONTEXT = {
-    "STATIC_URL": "STATIC_URL",
-}
-
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
-ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
 
 # celery Tasks
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
@@ -280,21 +223,16 @@ AWS_REGION = os.getenv("AWS_REGION", "")
 # MGUN_API_URL = os.getenv("MGUN_API_URL", "")
 # MGUN_API_KEY = os.getenv("MGUN_API_KEY", "")
 
-# SG_USER = os.getenv("SG_USER", "")
-# SG_PWD = os.getenv("SG_PWD", "")
-
 # MANDRILL_API_KEY = os.getenv("MANDRILL_API_KEY", "")
-
 
 # Marketing app related
 # URL_FOR_LINKS = os.getenv("URLFORLINKS")
-
 
 # GP_CLIENT_ID = os.getenv("GP_CLIENT_ID", False)
 # GP_CLIENT_SECRET = os.getenv("GP_CLIENT_SECRET", False)
 # ENABLE_GOOGLE_LOGIN = os.getenv("ENABLE_GOOGLE_LOGIN", False)
 
-MARKETING_REPLY_EMAIL = os.getenv("MARKETINGREPLYEMAIL")
+MARKETING_REPLY_EMAIL = os.getenv("MARKETING_REPLY_EMAIL")
 
 PASSWORD_RESET_TIMEOUT_DAYS = 3
 
@@ -314,54 +252,6 @@ if SENTRY_ENABLED and not DEBUG:
         ] + MIDDLEWARE
 
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "filters": {
-        "require_debug_false": {"()": "django.utils.log.RequireDebugFalse",},
-        "require_debug_true": {"()": "django.utils.log.RequireDebugTrue",},
-    },
-    "formatters": {
-        "django.server": {
-            "()": "django.utils.log.ServerFormatter",
-            "format": "[%(server_time)s] %(message)s",
-        }
-    },
-    "handlers": {
-        "console": {
-            "level": "INFO",
-            "filters": ["require_debug_true"],
-            "class": "logging.StreamHandler",
-        },
-        "console_debug_false": {
-            "level": "ERROR",
-            "filters": ["require_debug_false"],
-            "class": "logging.StreamHandler",
-        },
-        "django.server": {
-            "level": "INFO",
-            "class": "logging.StreamHandler",
-            "formatter": "django.server",
-        },
-        "mail_admins": {
-            "level": "ERROR",
-            "filters": ["require_debug_false"],
-            "class": "django.utils.log.AdminEmailHandler",
-        },
-        "logfile": {"class": "logging.FileHandler", "filename": "server.log",},
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console", "console_debug_false", "logfile",],
-            "level": "INFO",
-        },
-        "django.server": {
-            "handlers": ["django.server"],
-            "level": "INFO",
-            "propagate": False,
-        },
-    },
-}
 # HAYSTACK_CONNECTIONS = {
 #     'default': {
 #         # 'ENGINE': 'haystack.backends.elasticsearch_backend.ElasticsearchSearchEngine',
@@ -410,7 +300,7 @@ LOGGING = {
 
 # HAYSTACK_DEFAULT_OPERATOR = 'AND'
 
-APPLICATION_NAME = "bottlecrm"
+APPLICATION_NAME = "CarCRM"
 
 
 # CACHES = {
@@ -422,9 +312,23 @@ APPLICATION_NAME = "bottlecrm"
 
 PASSWORD_RESET_MAIL_FROM_USER = os.getenv("PASSWORD_RESET_MAIL_FROM_USER")
 
-
 SETTINGS_EXPORT = ["APPLICATION_NAME"]
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+
+################################################################################
+# Import Logging settings
+################################################################################
+from crm.logger import *
+
+################################################################################
+# Import EMAIL settings
+################################################################################
+from crm.email import *
+
+################################################################################
+# Import Compress settings
+################################################################################
+from crm.compres import *
 
 ################################################################################
 # Import django-jazzmin settings
@@ -432,6 +336,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 from crm.jazzmin import JAZZMIN_SETTINGS
 
 ################################################################################
-# Import telegram settings
+# Import Telegram settings
 ################################################################################
 from crm.telegram import *
+

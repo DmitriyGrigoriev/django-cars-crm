@@ -1,4 +1,7 @@
 import pytz
+import smtplib, logging
+from email.message import EmailMessage
+from django.core.mail import mail_admins
 from django.utils.translation import gettext_lazy as _
 
 
@@ -594,3 +597,6 @@ def append_str_to(append_to: str, *args, sep=", ", **kwargs):
     append_to = append_to or ""
     result_list = [append_to] + list(args) + list(kwargs.values())
     return f"{sep}".join(filter(len, result_list))
+
+def is_ajax(request):
+    return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'

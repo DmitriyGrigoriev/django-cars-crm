@@ -47,6 +47,7 @@ from contacts.models import Contact
 from leads.models import Lead
 from opportunity.models import SOURCES, STAGES, Opportunity
 from teams.models import Teams
+from common.utils import is_ajax
 
 
 @login_required
@@ -235,14 +236,14 @@ class CreateAccountView(SalesAccessRequiredMixin, LoginRequiredMixin, CreateView
         if self.request.POST.get("savenewform"):
             return redirect("accounts:new_account")
 
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             data = {"success_url": reverse_lazy("accounts:list"), "error": False}
             return JsonResponse(data)
 
         return redirect("accounts:list")
 
     def form_invalid(self, form):
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             return JsonResponse({"error": True, "errors": form.errors})
         return self.render_to_response(self.get_context_data(form=form))
 
@@ -454,13 +455,13 @@ class AccountUpdateView(SalesAccessRequiredMixin, LoginRequiredMixin, UpdateView
             protocol=self.request.scheme,
         )
 
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             data = {"success_url": reverse_lazy("accounts:list"), "error": False}
             return JsonResponse(data)
         return redirect("accounts:list")
 
     def form_invalid(self, form):
-        if self.request.is_ajax():
+        if is_ajax(self.request):
             return JsonResponse({"error": True, "errors": form.errors})
         return self.render_to_response(self.get_context_data(form=form))
 
