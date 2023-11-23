@@ -40,7 +40,10 @@ THIRD_PARTY_APPS = [
     "simple_pagination",
     "telegram_django_bot",
     "django_htmx",
-    "template_partials",
+    "django_components",
+    "crispy_forms",
+    "crispy_bootstrap4",
+    # "template_partials",
     "compressor",
     # 'haystack',
     "sorl.thumbnail",
@@ -84,7 +87,7 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [os.path.join(BASE_DIR, "templates"),],
-        "APP_DIRS": True,
+        # "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
@@ -94,6 +97,14 @@ TEMPLATES = [
                 "common.context_processors.common.app_name",
                 "django_settings_export.settings_export",
             ],
+            'loaders':[(
+                'django.template.loaders.cached.Loader', [
+                    'django.template.loaders.filesystem.Loader',
+                    'django.template.loaders.app_directories.Loader',
+                    'django_components.template_loader.Loader',
+                ]
+            )],
+            "builtins": ["django_components.templatetags.component_tags"],
             # "builtins": ["template_partials.templatetags.partials"],
             "debug": DEBUG,
         },
@@ -120,6 +131,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
     os.path.join(BASE_DIR, "blog_app/static"),
+    os.path.join(BASE_DIR, "components"),
 ]
 
 # Password validation
@@ -315,6 +327,11 @@ PASSWORD_RESET_MAIL_FROM_USER = os.getenv("PASSWORD_RESET_MAIL_FROM_USER")
 SETTINGS_EXPORT = ["APPLICATION_NAME"]
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
+################################################################################
+# Set crispy forms settings
+################################################################################
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap4"
+CRISPY_TEMPLATE_PACK = "bootstrap4"
 ################################################################################
 # Import Logging settings
 ################################################################################

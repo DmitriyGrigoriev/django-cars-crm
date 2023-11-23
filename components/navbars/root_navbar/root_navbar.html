@@ -1,0 +1,18 @@
+<ul class="navbar-nav mr-auto">
+  {% if request.user.is_superuser or request.user.role == 'ADMIN' or request.user.has_sales_access %}
+    {% component "root-navbar-item" item_id="dashboard" item_ref="common:dashboard" item_title="Dashboard" %}
+    {% component "root-navbar-item" item_id="accounts" item_ref="accounts:list" item_title="Accounts" %}
+    {% component "root-navbar-item" item_id="contacts" item_ref="contacts:list" item_title="Contacts" %}
+    {% component "root-navbar-item" item_id="leads" item_ref="leads:list" item_title="Leads" %}
+    {% component "root-navbar-item" item_id="opportunities" item_ref="opportunities:list" item_title="Opportunities" %}
+    {% component "root-navbar-item" item_id="cases" item_ref="cases:list" item_title="Cases" %}
+    {% component "root-navbar-item" item_id="documents" item_ref="common:doc_list" item_title="Documents" %}
+    {% component "root-navbar-item" item_id="tasks" item_ref="tasks:tasks_list" item_title="Tasks" %}
+    {% component "root-navbar-item" item_id="invoices" item_ref="invoices:invoices_list" item_title="Invoices" %}
+    {% component "root-navbar-item" item_id="events" item_ref="events:events_list" item_title="Events" %}
+  {% endif %}
+
+  {% if request.user.role == 'ADMIN' or request.user.is_superuser %}
+    {% component "root-navbar-item" item_id="teams" item_ref="teams:teams_list" item_title="Teams" %}
+  {% endif %}
+</ul>

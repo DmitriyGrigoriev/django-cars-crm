@@ -1,0 +1,8 @@
+{% load static %}
+<li class="nav-item">
+    <a class="nav-link" id="{{ id }}"
+       hx-get="{% url href %}"
+       hx-push-url="true"
+       hx-target="#main_content"
+    >{{ title }}</a>
+</li>

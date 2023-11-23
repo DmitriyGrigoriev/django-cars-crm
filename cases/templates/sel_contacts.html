@@ -1,0 +1,8 @@
+<select>
+{% for con in con %}
+<option value="{{con.id}}" {% for sel in selcon %}
+{% if con.id == sel.id %}
+selected {% endif %}{% endfor %}>{{con.name}}</option>
+}
+{% endfor %}
+</select>

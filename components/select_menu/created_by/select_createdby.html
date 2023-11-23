@@ -1,0 +1,13 @@
+<div class="form-group">
+    <label class="label" for="{{ id }}">
+        <span class="label-text text-black">{{ label }}</span>
+    </label>
+    <select class="form-control assigned_users" id="{{ id }}">
+        <option selected>Choose...</option>
+        {% for user in created_by_users %}
+            <option value="{{ user.id }}" {% if user.id|slugify == request.POST.created_by %} selected="" {% endif %}>
+                {{ user.email }}
+            </option>
+        {% endfor %}
+    </select>
+</div>

@@ -1,0 +1,13 @@
+<div class="form-group">
+    <label class="label" for="{{ id }}">
+        <span class="label-text text-black">{{ label }}</span>
+    </label>
+    <select class="form-control assigned_users" id="{{ id }}">
+        <option selected>Choose...</option>
+        {% for user in users %}
+            <option value="{{user.id}}" {% if user.id|slugify in assigned_to %} selected="" {% endif %}>
+                {% if user.username %} {{ user.username }} {% else %} {{ user.email }} {% endif %}
+            </option>
+        {% endfor %}
+    </select>
+</div>

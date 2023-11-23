@@ -1,6 +1,7 @@
 {% load static %}
 {% load compress %}
 {% load thumbnail %}
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -57,7 +58,9 @@
     <div id="mainbody" class="main_container" style="margin-top:65px;">
       {% block breadcrumb %}{% endblock %}
 
-      {% block content %}{% endblock %}
+        <div id="main_content">
+            {% block content %}{% endblock %}
+        </div>
     </div>
   </div>
 

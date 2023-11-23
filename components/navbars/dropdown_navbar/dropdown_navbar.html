@@ -1,0 +1,33 @@
+<div class="dropdown">
+    {% if request.user.is_superuser or request.user.role == 'ADMIN' %}
+        {% component 'dropdown-toggle' '#' %}
+    {% else %}
+        {% if request.user.has_sales_access and request.user.has_marketing_access %}
+            {% component 'dropdown-toggle' '#' %}
+        {% elif request.user.has_sales_access and not request.user.has_marketing_access %}
+            {% component 'dropdown-toggle' 'common:dashboard' %}
+        {% elif not request.user.has_sales_access and request.user.has_marketing_access %}
+            {% component 'dropdown-toggle' 'marketing:dashboard' %}
+        {% else %}
+            {{ '' }}
+        {% endif %}
+    {% endif %}
+
+    <div class="dropdown-menu mt-2" aria-labelledby="dropdownMenuLink">
+        {% if user.is_superuser or user.role == 'ADMIN' %}
+            {% component "dropdown-item" item_ref="common:dashboard" item_title="Sales" %}
+            {% component "dropdown-item" item_ref="marketing:dashboard" item_title="Marketing" %}
+        {% else %}
+            {% if user.has_sales_access and user.has_marketing_access %}
+                {% component "dropdown-item" item_ref="common:dashboard" item_title="Sales" %}
+                {% component "dropdown-item" item_ref="marketing:dashboard" item_title="Marketing" %}
+            {% elif user.has_sales_access and not user.has_marketing_access %}
+                {% component "dropdown-item" item_ref="common:dashboard" item_title="Sales" %}
+            {% elif not user.has_sales_access and user.has_marketing_access %}
+                {% component "dropdown-item" item_ref="marketing:dashboard" item_title="Marketing" %}
+            {% else %}
+                {{ '' }}
+            {% endif %}
+        {% endif %}
+    </div>
+</div>

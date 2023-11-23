@@ -1,0 +1,16 @@
+{% extends 'root.html' %}
+{% block extralinks %}
+    <style>
+        .form-group label {
+            font-weight: 800;
+        }
+
+        .table_container_row .card .card-body table tbody .due_date td {
+            color: red;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    {% include 'invoices_partial.html' %}
+{% endblock %}

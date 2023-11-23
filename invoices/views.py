@@ -101,7 +101,9 @@ def invoices_list(request):
         context["created_by_users"] = users.filter(is_active=True, id__in=user_ids)
         today = datetime.today().date()
         context["today"] = today
-        return render(request, "invoices_list.html", context)
+        # if request.htmx:
+        #     return render(request, 'invoices_partial.html', context)
+        return render(request, "invoices.html", context)
 
     if request.method == "POST":
         context = {}
@@ -144,7 +146,9 @@ def invoices_list(request):
         context["invoices"] = invoices.distinct().order_by("-created_on")
         today = datetime.today().date()
         context["today"] = today
-        return render(request, "invoices_list.html", context)
+        if request.htmx:
+            return render(request, 'invoices_partial.html', context)
+        return render(request, "invoices.html", context)
 
 
 @login_required

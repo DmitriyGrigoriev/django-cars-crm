@@ -1,0 +1,96 @@
+{% load static %}
+{% load thumbnail %}
+
+{% for team_obj in teams %}
+<div class="modal fade" id="exampleModalCenter_team{{team_obj.id}}" tabindex="-1" role="dialog"
+  aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalLongTitle">{{ team_obj.name }}</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="" id="">
+          <div class="">
+            <div class="col-md-12">
+              <div class="card">
+                <div class="card-body" id="datashow" >
+
+                  <div class="row marl no-gutters">
+                    <div class="col-md-8">
+                      {% if team_obj.name %}
+
+                      {% endif %}
+                      {% if team_obj.description %}
+                      <div class="filter_col col-md-12">
+                        <div class="form-group">
+                          <label class="contact_field_label" for="id_status" data-name="status">Description</label>
+                          <div class="contact_field" id="doc_status" data-name="status">
+                            {{ team_obj.description }} </div>
+                        </div>
+                      </div>
+                      {% endif %}
+                      <div class="filter_col col-md-12">
+                        <div class="form-group">
+                          <label class="contact_field_label" for="id_status" data-name="status">Assigned To</label>
+                          <br>
+                          {% with users=team_obj.users.all %}
+                          {% for user in users %}
+                          {% if user.profile_pic %}
+                          {% thumbnail user.profile_pic "40x40" crop="center" as im %}
+                          <span>
+                            <a href="{% url 'common:view_user' user.id %}">
+                              <img src="{{ im.url }}" width="{{ im.width }}" height="{{ im.height }}"
+                                title="{{ user.email }}">
+                            </a>
+                          </span>
+                          {% endthumbnail %}
+                          {% else %}
+                          <span>
+                            <a href="{% url 'common:view_user' user.id %}">
+                              <img src="{% static 'images/user.png' %}" title="{{ user.email }}" width="40" height="40">
+                            </a>
+                          </span>
+                          {% endif %}
+                          {% empty %}
+                          None
+                        </div>
+                      </div>
+                      {% endfor %}
+                      {% endwith %}
+                      <div class="filter_col col-md-12" style="margin-left: -1em;">
+                        <div class="form-group mt-3">
+                          <label class="contact_field_label" for="id_created_by" data-name="created_by">Created
+                            By</label>
+                          <div class="contact_field" id="created_by" data-name="created_by">
+                            {{ team_obj.created_by }}</div>
+                        </div>
+                      </div>
+                      <div class="filter_col col-md-12" style="margin-left: -1em;">
+                        <div class="form-group">
+                          <label class="contact_field_label" for="id_created_on" data-name="created_on">Created
+                            On</label>
+                          <div class="contact_field" id="created_on" data-name="created_on" title="{{team_obj.created_on}}">
+                            {{ team_obj.created_on_arrow }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+
+{% endfor %}

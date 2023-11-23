@@ -38,7 +38,9 @@ def teams_list(request):
         user_ids = list(queryset.values_list("created_by", flat=True))
         user_ids.append(request.user.id)
         context["created_by_users"] = users.filter(is_active=True, id__in=user_ids)
-        return render(request, "teams.html", context)
+        if request.htmx:
+            return render(request, 'teams_partial.html', context)
+        return render(request, 'teams.html', context)
     if request.method == "POST":
         if request.POST.get("team_name"):
             queryset = queryset.filter(name__icontains=request.POST.get("team_name"))
@@ -53,7 +55,9 @@ def teams_list(request):
         user_ids = list(queryset.values_list("created_by", flat=True))
         user_ids.append(request.user.id)
         context["created_by_users"] = users.filter(is_active=True, id__in=user_ids)
-        return render(request, "teams.html", context)
+        if request.htmx:
+            return render(request, 'teams_partial.html', context)
+        return render(request, 'teams.html', context)
 
 
 @login_required

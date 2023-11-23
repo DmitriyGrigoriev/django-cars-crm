@@ -79,7 +79,9 @@ def events_list(request):
         context["created_by_users"] = users.filter(
             is_active=True, id__in=user_ids, company=request.company
         )
-        return render(request, "events_list.html", context)
+        if request.htmx:
+            return render(request, 'events_partial.html', context)
+        return render(request, "events.html", context)
 
     if request.method == "POST":
         context = {}
@@ -112,7 +114,9 @@ def events_list(request):
         context["created_by_users"] = users.filter(
             is_active=True, id__in=user_ids, company=request.company
         )
-        return render(request, "events_list.html", context)
+        if request.htmx:
+            return render(request, 'events_partial.html', context)
+        return render(request, "events.html", context)
 
 
 @login_required
