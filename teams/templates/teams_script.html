@@ -1,8 +1,6 @@
 <script type="text/javascript">
   $(document).ready(function () {
-    $('.assigned_users').select2();
     $('#id_tag').select2();
-    $('#created_by').select2();
     $(".filter_toggle").click(function () {
       $(".list_filter_row").toggle();
     });
@@ -11,22 +9,8 @@
   search = "{{search}}"
 
   if (search == 'True') {
+      console.log('list_filter_row: ', $(".list_filter_row"))
     $(".list_filter_row").show();
-  }
-
-  $("#close-tab").click(function (e) {
-    $("#tab_status").val('Closed')
-  })
-
-  $("#open-tab").click(function (e) {
-    $("#tab_status").val('Open')
-  })
-
-  tab_status = "{{tab_status}}"
-  if (tab_status == 'Closed') {
-    $("#close-tab").click()
-  } else {
-    $("#open-tab").click()
   }
 
   $('.delete').click(function (e) {

@@ -7,3 +7,6 @@ class CreatedBy(component.Component):
 
     def get_context_data(self, **kwargs):
         return kwargs
+
+    class Media:
+        js = "select_menu/created_by/created_by.js"

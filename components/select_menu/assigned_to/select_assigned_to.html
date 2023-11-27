@@ -2,7 +2,7 @@
     <label class="label" for="{{ id }}">
         <span class="label-text text-black">{{ label }}</span>
     </label>
-    <select class="form-control assigned_users" id="{{ id }}">
+    <select class="form-control select-assigned-to" id="{{ id }}">
         <option selected>Choose...</option>
         {% for user in users %}
             <option value="{{user.id}}" {% if user.id|slugify in assigned_to %} selected="" {% endif %}>

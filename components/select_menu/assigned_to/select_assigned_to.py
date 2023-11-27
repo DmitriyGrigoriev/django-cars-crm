@@ -7,3 +7,6 @@ class AssignedTo(component.Component):
 
     def get_context_data(self, **kwargs):
         return kwargs
+
+    class Media:
+        js = "select_menu/assigned_to/assigned_to.js"

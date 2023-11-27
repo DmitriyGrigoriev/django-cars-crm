@@ -1,0 +1,50 @@
+{% load paginate %}
+
+<div class="col-md-12 col-lg-12 col-xl-12">
+    <div class="table_container_row row marl no-gutters">
+        <div class="col-md-12">
+            <div class="tab-content" id="{{ id }}">
+                <div class="tab-pane fade show active" id="open" role="tabpanel" aria-labelledby="open">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="card-title text-right">
+                                <span class="float-left">
+                                    {{ label }} - {% if show_pageitems %}{% show_pageitems %}{% else %}
+                                    {{ obj|length }}{% endif %}
+                                </span>
+                                {% component "btn-filter" %}
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table ">
+                                    <thead>
+                                        {% slot "header" %} {% endslot %}
+                                    </thead>
+                                    <tbody>
+                                    {% slot "paginate" %}
+                                        {% if per_page %}
+                                            {% paginate per_page teams %}
+                                        {% else %}
+                                            {% paginate 10 teams %}
+                                        {% endif %}
+                                    {% endslot %}
+                                    {% slot "body" %}
+                                        {% slot "action" %} {% endslot %}
+                                    {% endslot %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% if obj|length == 0 %}
+                                <h6 class="text-center">{{ not_found_msg }}</h6>
+                            {% endif %}
+                            <div class="marl row text-center">
+                                {% if show_pages %}{% show_pages %}{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% slot "data-target" %} {% endslot %}
