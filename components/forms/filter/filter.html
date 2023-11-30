@@ -1,21 +1,31 @@
 <div class="filter_container">
 
-    {% component 'btn-text' href='teams:team_create' label=btn_new_text %}
+    {% component 'btn-text' href=btn_action label=btn_text %}
 
-    <div class="filter-component filter_row list_filter_row">
+    <div class="filter_row list_filter_row row marl">
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
-                    <form id="{{ id }}" action="" method="POST">
+                    <form action="{% url form_action %}"
+                          method="POST"
+                          id="{{ id }}"
+                          name="filter-form"
+                          hx-post="{% url form_action %}"
+                          hx-encoding="multipart/form-data"
+                          hx-target="#table-container"
+                          hx-swap="innerHTML"
+                    >
                         <div class="card-body ">
                             <div class="card-title">{{ label }}</div>
                             <div class="row marl">
+
                                 {% slot "detail" %} {% endslot %}
+
                                 {% slot "action" %}
                                     <div class="filter_col col-2">
                                         <div class="form-group buttons_row">
                                             {% component 'btn-submit' %}
-                                            {% component 'btn-clear' href=clear_action %}
+                                            {% component 'btn-reset' href=reset_action %}
                                         </div>
                                     </div>
                                 {% endslot %}

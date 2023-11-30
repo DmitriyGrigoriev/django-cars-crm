@@ -1,3 +1,14 @@
 {% load i18n %}
 
-<button class="btn btn-primary save" type="submit">{% trans 'Search' %}</button>
+<button class="btn btn-primary save"
+        type="submit"
+>
+    {% trans 'Search' %}
+</button>
+
+{% comment %}
+        hx-post="hx-filter/"
+        hx-push-url="false"
+        hx-target="#table_container"
+
+{% endcomment %}

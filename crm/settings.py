@@ -94,6 +94,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # "django.core.context_processors.request", # use in simple_pagination
                 "common.context_processors.common.app_name",
                 "django_settings_export.settings_export",
             ],

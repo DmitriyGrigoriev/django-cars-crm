@@ -9,3 +9,6 @@ class ButtonEdit(component.Component):
 
     def get_context_data(self, **kwargs):
         return kwargs
+
+    # class Media:
+    #     js = "buttons/btn_delete/btn_delete.js"

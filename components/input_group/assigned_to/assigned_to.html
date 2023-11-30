@@ -1,0 +1,31 @@
+{% load i18n %}
+{#<div class="form-group">#}
+{#    {% if label %}#}
+{#        <label class="form-label" for="{{ id }}">#}
+{#            <span class=" label-text{% if color %} text-{{ color }}{% else %} text-black{% endif %}">{{ label }}</span>#}
+{#        </label>#}
+{#    {% endif %}#}
+{#    {% if value %}#}
+{#        <p class="label_value" id="{{ id }}">#}
+{#            {{ value }}#}
+{#        </p>#}
+{#    {% endif %}#}
+{#</div>#}
+
+
+<div class="form-group">
+    {% with users=obj %}
+        <label class="form-label" for="{{ id }}" data-name="{{ id }}">{{ label }}</label>
+        {% if users %}
+            {% for user in users %}
+                <div class="label_value" id="{{ id }}" data-name="{{ id }}">
+                    <a href="{% url href uri %}">
+                        {{ user }}
+                    </a>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="label_value" id="{{ id }}" data-name="{{ id }}">{% trans "None" %}</div>
+        {% endif %}
+    {% endwith %}
+</div>

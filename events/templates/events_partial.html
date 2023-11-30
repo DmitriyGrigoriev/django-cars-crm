@@ -1,5 +1,19 @@
-{% include 'events_filters.html' %}
-
-{% include 'events_list.html' %}
-
-{% include 'events_script.html' %}
+<div class="main_container">
+    {# Fiters component block#}
+    {% component_js_dependencies %}
+    {% component_block "filter" id="events_filter" label="Filters" btn_action='events:event_create' btn_text='Add New Events' form_action='events:events_list' reset_action='events:reset_filter' %}
+        {% fill "detail" %}
+            <div class="filter_col col-md-2">
+                {% component "input" id="event_name" type="text" name="event_name" placeholder="Event Name" label="Event Name" value=request.POST.event_name|default_if_none:"" %}
+            </div>
+            <div class="filter_col col-md-2">
+                {% component "select-created-by" label="Created By" id="created_by" %}
+            </div>
+            <div class="filter_col col-md-2">
+                {% component "select-assigned-to" label="Assigned Users" id="assigned_to" %}
+            </div>
+        {% endfill %}
+    {% endcomponent_block %}
+    {# Table component block#}
+    {%  include 'events_table.html' %}
+</div>

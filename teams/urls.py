@@ -7,6 +7,7 @@ app_name = "teams"
 
 urlpatterns = [
     path("", teams_list, name="teams_list"),
+    path("reset-filter", teams_list, name="reset_filter"),
     path("create/", team_create, name="team_create"),
     path("edit/<int:team_id>/", team_edit, name="team_edit"),
     path("delete/<int:team_id>/", team_delete, name="team_delete"),

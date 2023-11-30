@@ -39,6 +39,8 @@ def teams_list(request):
         user_ids.append(request.user.id)
         context["created_by_users"] = users.filter(is_active=True, id__in=user_ids)
         if request.htmx:
+            if reverse("teams:reset_filter") == request.path:
+                return render(request, 'teams_table.html', context)
             return render(request, 'teams_partial.html', context)
         return render(request, 'teams.html', context)
     if request.method == "POST":
@@ -56,7 +58,7 @@ def teams_list(request):
         user_ids.append(request.user.id)
         context["created_by_users"] = users.filter(is_active=True, id__in=user_ids)
         if request.htmx:
-            return render(request, 'teams_partial.html', context)
+            return render(request, 'teams_table.html', context)
         return render(request, 'teams.html', context)
 
 

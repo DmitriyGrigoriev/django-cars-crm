@@ -1,8 +1,12 @@
 <div class="form-group">
-    <label class="form-label" for="{{ id }}>
-        <span class="label-text{% if color %} text-{{ color }}{% else %} text-black{% endif %}">{{ label }}</span>
-    </label>
-    <p class="label_value" id="{{ id }}">
-        {{ value }}
-    </p>
+    {% if label %}
+        <label class="form-label" for="{{ id }}">
+            <span class=" label-text{% if color %} text-{{ color }}{% else %} text-black{% endif %}">{{ label }}</span>
+        </label>
+    {% endif %}
+    {% if value %}
+        <p class="label_value" id="{{ id }}">
+            {{ value }}
+        </p>
+    {% endif %}
 </div>

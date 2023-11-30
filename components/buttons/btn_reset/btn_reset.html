@@ -1,0 +1,10 @@
+{% load i18n %}
+
+<a class="btn btn-default clear"
+   href="{% url href %}"
+   hx-get="{% url href %}"
+   hx-target="#table-container"
+   hx-swap="innerHTML"
+>
+    {% trans 'Clear' %}
+</a>

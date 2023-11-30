@@ -6,6 +6,8 @@
     });
   });
 
+
+  {% comment %}
   search = "{{search}}"
 
   if (search == 'True') {
@@ -26,4 +28,6 @@
     $('#leads_filter').attr("action", $(this).attr("href"));
     $('#leads_filter').submit();
   });
+  {% endcomment %}
+
 </script>

@@ -1,6 +1,19 @@
 {%  load i18n %}
 
-<a href="{% url href uri %}"
-   class="btn btn-danger delete remove_document" title={% trans "Delete" %}>
+<a id="btn-delete"
+   class="btn btn-danger delete remove_document"
+   title={% trans "Delete" %}
+   href="{% url href uri %}"
+   hx-get="{% url href  uri %}"
+   hx-swap="none"
+   hx-confirm="{% trans 'Are you sure you want to delete ?' %}"
+>
     <i class="fas fa-trash-alt"></i>
 </a>
+
+{% comment %}
+   href="{% url href uri %}"
+   hx-get="{% url href  uri %}"
+   hx-swap="none"
+   hx-confirm="{% trans 'Are you sure you want to delete ?' %}"
+{% endcomment %}

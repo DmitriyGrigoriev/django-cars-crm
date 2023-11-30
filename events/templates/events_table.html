@@ -1,0 +1,158 @@
+{% load i18n %}
+
+<div id="table-container">
+    {# Table component block#}
+    {% component_css_dependencies %}
+    {% translate "No Events Found" as event_not_found_msg %}
+    {% component_block "table" obj=events id="events_table" label="Events" not_found_msg=event_not_found_msg %}
+        {% fill "header" %}
+            {% if events|length > 0 %}
+                <tr>
+                    <th width="5%">{% trans "ID" %}</th>
+                    <th width="5%">{% trans "Name" %}</th>
+                    <th width="5%">{% trans "Contacts" %}</th>
+                    <th width="10%">{% trans "Assigned To" %}</th>
+                    <th width="10%">{% trans "Start Date" %}</th>
+                    <th width="10%">{% trans "Date of Meeting" %}</th>
+                    <th width="10%">{% trans "End Date" %}</th>
+                    <th width="5%">{% trans "Created On" %}</th>
+                    <th width="5%">{% trans "Created by" %}</th>
+                    <th width="10%">{% trans "Actions" %}</th>
+                </tr>
+            {% endif %}
+        {% endfill %}
+        {# Modal window component block#}
+        {% fill "data-target" %}
+            {% for event in events %}
+                {% component_block "modal-form" obj=event %}
+                    {% fill "body" %}
+                        <div class="col-md-4">
+                            {% if event.name %}
+                                <div class="filter_col col-md-12">
+                                    {% translate "Name" as event_name %}
+                                    {% component "label" id="event_name" label=event_name value=event.name|default_if_none:"" only %}
+                                </div>
+                            {% endif %}
+                            {% if event.event_type %}
+                                <div class="filter_col col-md-12">
+                                    {% translate "Event Type" as event_type %}
+                                    {% component "label" id="event_event_type" label=event_type value=event.event_type|default_if_none:"" only %}
+                                </div>
+                            {% endif %}
+                            {% if event.start_date %}
+                                <div class="filter_col col-md-12">
+                                    {% translate "Start Date" as event_start_date %}
+                                    {% component "label" id="event_start_date" label=event_start_date value=event.start_date only %}
+                                </div>
+                            {% endif %}
+                            {% if event.end_date %}
+                                <div class="filter_col col-md-12">
+                                    {% translate "End Date" as event_end_date %}
+                                    {% component "label" id="event_end_date" label=event_end_date value=event.end_date only %}
+                                </div>
+                            {% endif %}
+                            {% if event.description %}
+                                <div class="filter_col col-md-12">
+                                    {% translate "Description" as event_description %}
+                                    {% component "label" id="event_description" label=event_description value=event.description only %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <div class="filter_col col-md-12">
+                                {% translate "Contacts" as event_contacts %}
+                                {% component "label" id="event_contacts" label=event_contacts only %}
+                                {% with contacts=event.contacts.all %}
+                                    {% if contacts %}
+                                        {% for contact in contacts %}
+                                            {% component "label" id="account_website" value=contact only %}
+                                        {% endfor %}
+                                    {% else %}
+                                        {% translate "None" as event_none %}
+                                        {% component "label" id="account_website" value=event_none only %}
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                            <div class="filter_col col-md-12">
+                                {% translate "Assigned To" as event_assigned_to %}
+                                {% component "assigned-to-label" obj=event.get_team_and_assigned_users href='common:view_user' uri=user.id id="event_assigned_to" label=event_assigned_to only %}
+                            </div>
+                            {% if event.start_time %}
+                                <div class="filter_col col-md-12">
+                                    {% translate "Start Time" as event_start_time %}
+                                    {% component "label" id="event_start_time" label=event_start_time value=event.start_time only %}
+                                </div>
+                            {% endif %}
+                            {% if event.end_time %}
+                                <div class="filter_col col-md-12">
+                                    {% translate "End Time" as event_end_time %}
+                                    {% component "label" id="event_end_time" label=event_end_time value=event.end_time only %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            {% if event.date_of_meeting %}
+                                <div class="filter_col col-md-12">
+                                    {% translate "Date Of Meeting" as event_date_of_meeting %}
+                                    {% component "label" id="event_date_of_meeting" label=event_date_of_meeting value=event.date_of_meeting only %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="created_information">
+                            {% trans "Created by" %} <b>{{ event.created_by }}</b> {% trans "created on" %}
+                            <b title="{{ event.created_on }}">{{ event.created_on_arrow }}</b>
+                        </div>
+                    {% endfill %}
+                {% endcomponent_block %}
+            {% endfor %}
+        {% endfill %}
+
+        {# Custom table fields component block  #}
+        {% fill "body" %}
+            {% for event in events %}
+                <tr class="text-center">
+                    <td scope="row">{{ forloop.counter }}</td>
+                    <td>
+                        <a href="#" data-toggle="modal" data-target="#modal_form_{{ event.id }}">
+                            {{ event.name }}
+                        </a>
+                    </td>
+                    <td class="">
+                        {% with contacts=event.contacts.all %}
+                            {% if contacts %}
+                                {% for contact in contacts %}
+                                    <div>
+                                        <a href="{% url 'contacts:view_contact' contact.id %}">{{ contact }}</a>
+                                    </div>
+                                {% empty %}
+                                    {% trans 'None' %}
+                                {% endfor %}
+                            {% else %}
+                                <div>
+                                    {% trans 'None' %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>
+                        {% component "assigned-to" users=event.get_team_and_assigned_users href='common:view_user' %}
+                    </td>
+                    <td>{{ event.start_date }} </td>
+                    <td>{{ event.date_of_meeting }} </td>
+                    <td>{{ event.end_date }} </td>
+                    <td title="{{ event.created_on }}">{{ event.created_on_arrow }}</td>
+                    <td>
+                        {% component "created-by" obj=event %}
+                    </td>
+                    <td class="actions">
+                        {% if request.user == event.created_by or request.user.role == 'ADMIN' or reques.user.has_sales_access %}
+                            {% component "btn-view" href='events:detail_view' uri=event.id %}
+                            {% component "btn-edit" href='events:event_update' uri=event.id %}
+                            {% component "btn-delete" href='events:event_delete' uri=event.id %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        {% endfill %}
+    {% endcomponent_block %}
+</div>

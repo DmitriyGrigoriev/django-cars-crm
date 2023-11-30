@@ -80,8 +80,10 @@ def events_list(request):
             is_active=True, id__in=user_ids, company=request.company
         )
         if request.htmx:
+            if reverse("events:reset_filter") == request.path:
+                return render(request, 'events_table.html', context)
             return render(request, 'events_partial.html', context)
-        return render(request, "events.html", context)
+        return render(request, 'events.html', context)
 
     if request.method == "POST":
         context = {}
@@ -115,8 +117,8 @@ def events_list(request):
             is_active=True, id__in=user_ids, company=request.company
         )
         if request.htmx:
-            return render(request, 'events_partial.html', context)
-        return render(request, "events.html", context)
+            return render(request, 'events_table.html', context)
+        return render(request, 'events.html', context)
 
 
 @login_required

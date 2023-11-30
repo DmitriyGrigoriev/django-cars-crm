@@ -22,9 +22,9 @@
                                     <tbody>
                                     {% slot "paginate" %}
                                         {% if per_page %}
-                                            {% paginate per_page teams %}
+                                            {% paginate per_page obj %}
                                         {% else %}
-                                            {% paginate 10 teams %}
+                                            {% paginate 10 obj %}
                                         {% endif %}
                                     {% endslot %}
                                     {% slot "body" %}

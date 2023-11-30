@@ -6,6 +6,7 @@ app_name = "events"
 
 urlpatterns = [
     path("", events_list, name="events_list"),
+    path("reset-filter", events_list, name="reset_filter"),
     path("create/", event_create, name="event_create"),
     path("detail/<int:event_id>/", event_detail_view, name="detail_view"),
     path("edit/<int:event_id>/", event_update, name="event_update"),

@@ -1,5 +1,19 @@
-{% include 'teams_filters.html' %}
-
-{% include 'teams_list.html' %}
-
-{% include 'teams_script.html' %}
+<div class="main_container">
+    {# Fiters component block#}
+    {% component_js_dependencies %}
+    {% component_block "filter" id="teams_filter" label="Filters" btn_action='teams:team_create' btn_text='Add New Team' form_action='teams:teams_list' reset_action='teams:reset_filter' %}
+        {% fill "detail" %}
+            <div class="filter_col col-md-2">
+                {% component "input" id="team_name" type="text" name="team_name" placeholder="Team Name" label="Team Name" value=request.POST.team_name|default_if_none:"" %}
+            </div>
+            <div class="filter_col col-md-2">
+                {% component "select-created-by" label="Created By" id="created_by" %}
+            </div>
+            <div class="filter_col col-md-2">
+                {% component "select-assigned-to" label="Assigned Users" id="assigned_to" %}
+            </div>
+        {% endfill %}
+    {% endcomponent_block %}
+    {# Table component block#}
+    {%  include 'teams_table.html' %}
+</div>
