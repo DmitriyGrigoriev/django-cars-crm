@@ -1,3 +1,5 @@
-$(document).ready(function() {
-    $('.select-assigned-to').select2();
+htmx.onLoad(function(content) {
+    $('.select-assigned-to').select2({
+        placeholder: 'Select an option'
+    });
 });

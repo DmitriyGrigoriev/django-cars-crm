@@ -6,3 +6,7 @@ class root_navbar(component.Component):
     # To customize which template to use based on context
     # you can override def get_template_name() instead of specifying the below variable.
     template_name = "navbars/root_navbar/root_navbar.html"
+
+    class Media:
+        js = "navbars/root_navbar/root_navbar.js"
+        # css = "navbars/root_navbar/root_navbar.css"

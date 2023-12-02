@@ -1,6 +1,7 @@
+{#{% component "progress" %}#}
+
 <div class="main_container">
     {# Fiters component block#}
-    {% component_js_dependencies %}
     {% component_block "filter" id="events_filter" label="Filters" btn_action='events:event_create' btn_text='Add New Events' form_action='events:events_list' reset_action='events:reset_filter' %}
         {% fill "detail" %}
             <div class="filter_col col-md-2">

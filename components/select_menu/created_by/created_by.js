@@ -1,3 +1,3 @@
-$(document).ready(function() {
-    $('.select-created-by').select2();
+htmx.onLoad(function(content) {
+    $('.select-assigned-to').select2();
 });

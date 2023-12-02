@@ -2,7 +2,6 @@
 
 <div id="table-container">
     {# Table component block#}
-    {% component_css_dependencies %}
     {% translate "No Events Found" as event_not_found_msg %}
     {% component_block "table" obj=events id="events_table" label="Events" not_found_msg=event_not_found_msg %}
         {% fill "header" %}

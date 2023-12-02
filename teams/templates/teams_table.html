@@ -2,7 +2,6 @@
 
 <div id="table-container">
     {# Table component block#}
-    {% component_css_dependencies %}
     {% component_block "table" id="teams_table" obj=teams label="Teams" not_found_msg="No Teams Found" %}
         {% fill "header" %}
             {% if teams|length > 0 %}

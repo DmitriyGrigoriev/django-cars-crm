@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 from django.contrib.auth import views
 from django.urls import include, path
 from common.views import handler404, handler500
@@ -24,6 +25,9 @@ urlpatterns = [
     # path('planner/', include('planner.urls', namespace="planner")),
     path("logout/", views.LogoutView.as_view(), {"next_page": "/login/"}, name="logout"),
     path('jp-admin/', admin.site.urls, name="admin"),
+
+    # path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico')),
+
 ]
 
 if settings.DEBUG:

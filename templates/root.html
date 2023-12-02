@@ -19,6 +19,9 @@
   <!-- Load bootstrap toggle -->
 {#  <link href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css" rel="stylesheet">#}
 
+  <!-- Load favicon.ico -->
+  <link rel="shortcut icon" type="image/png" href="{% static 'favicon.ico' %}"/>
+
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <link href="https://cdn.quilljs.com/1.3.6/quill.bubble.css" rel="stylesheet">
   <link href="https://cdn.quilljs.com/1.3.6/quill.core.css" rel="stylesheet">
@@ -35,7 +38,7 @@
   <!-- Load jquery before calls from components -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.1/jquery.min.js" integrity="sha512-teGKRDIINyavMA8HWd2it9556yHW6RLuay1xk3s/d87nSU/GGFgt4DNwmAhrZUdpKtgTQCdISUvA0sZqrLpczg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <!-- Load from unpkg -->
-  <script src="https://unpkg.com/htmx.org@1.9.8"></script>
+  <script src="https://unpkg.com/htmx.org@1.6.1"></script>
 
   <style>
     .card-body {
@@ -53,6 +56,10 @@
   <link rel="stylesheet" href="{% static 'css/bootstrap-suggest.css' %}">
   {% endcompress %}
 
+  {% component_css_dependencies %}
+
+{#  {% component_js_dependencies %}#}
+
   {% block extralinks %} {% endblock %}
 </head>
 
@@ -63,14 +70,14 @@
     {% endblock %}
 
     <div id="mainbody" class="main_container" style="margin-top:65px;">
-      {% block breadcrumb %}{% endblock %}
-
+        {% block breadcrumb %}{% endblock %}
         <div id="main_content">
             {% block content %}{% endblock %}
         </div>
     </div>
   </div>
 
+  <!-- Load bootstrap datetimepicker -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment-with-locales.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.47/js/bootstrap-datetimepicker.min.js"></script>
@@ -83,23 +90,25 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.blockUI/2.70/jquery.blockUI.min.js"></script>
 
   <script src="{% static 'js/ajaxForm.js' %}"></script>
-  {# Select2 CDN  #}
+  <!-- Load Select2 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js" integrity="sha512-2ImtlRlf2VVmiGZsjm9bEyhjGW4dU7B6TNwh/hx/iSByxNENtj3WVE6o/9Lj4TJeVXPi4bnOIMXFIJJAeufa0A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/js/standalone/selectize.min.js" integrity="sha256-+C0A5Ilqmu4QcSPxrlGpaZxJ04VjsRjKu+G82kl5UJk=" crossorigin="anonymous"></script>
-
+  <!-- Load bootstrap -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha256-WqU1JavFxSAMcLP2WIOI+GB2zWmShMI82mTpLDcqFUg=" crossorigin="anonymous"></script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.1.2/js/tempusdominus-bootstrap-4.min.js" integrity="sha256-z0oKYg6xiLq3yJGsp/LsY9XykbweQlHl42jHv2XTBz4=" crossorigin="anonymous"></script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js" integrity="sha256-KM512VNnjElC30ehFwehXjx1YCHPiQkOPmqnrWtpccM=" crossorigin="anonymous"></script>
-
+  <!-- Load Jquery Tagsinput -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-tagsinput/1.3.6/jquery.tagsinput.min.js" integrity="sha256-IkytFcY/Z/rLvRE9rYyZvybaitAWr1y2jS/+eyxXky8=" crossorigin="anonymous"></script>
   <script src="https://malsup.github.io/jquery.form.js"></script>
 
 {#<script src="http://cdn.ckeditor.com/4.5.4/basic/ckeditor.js"></script>#}
 
   <script src="{% static 'js/bootstrap-suggest.js' %}"></script>
+
+ {% component_js_dependencies %}
+
 
   {% block js_block %}{% endblock js_block %}
   <script type="text/javascript">

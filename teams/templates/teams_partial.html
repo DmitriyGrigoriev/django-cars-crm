@@ -1,6 +1,6 @@
+{#{% component "progress" %}#}
 <div class="main_container">
     {# Fiters component block#}
-    {% component_js_dependencies %}
     {% component_block "filter" id="teams_filter" label="Filters" btn_action='teams:team_create' btn_text='Add New Team' form_action='teams:teams_list' reset_action='teams:reset_filter' %}
         {% fill "detail" %}
             <div class="filter_col col-md-2">
