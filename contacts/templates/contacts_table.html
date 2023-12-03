@@ -1,0 +1,111 @@
+{% load i18n %}
+{% load common_tags %}
+
+<div id="table-container">
+    {# Table component block#}
+    {% translate "Contacts" as contact_label %}
+    {% translate "No Contact Records Found" as contact_not_found_msg %}
+    {% component_block "table" obj=contact_obj_list id="contacts_table" label=contact_label not_found_msg=contact_not_found_msg %}
+        {% fill "header" %}
+            {% if contact_obj_list|length > 0 %}
+                <tr>
+                    <th width="5%">{% trans "S.no" %}</th>
+                    <th width="20%">{% trans "Name" %}</th>
+                    <th width="20%">{% trans "Assigned To" %}</th>
+                    <th width="15%">{% trans "City" %}</th>
+                    <th width="15%">{% trans "State" %}</th>
+                    <th width="15%">{% trans "Created On" %}</th>
+                    <th width="15%">{% trans "Actions" %}</th>
+                </tr>
+            {% endif %}
+        {% endfill %}
+        {# Modal window component block#}
+        {% fill "data-target" %}
+            {% for contact in contact_obj_list %}
+                {% with ""|addstr:contact.first_name|addstr:contact.last_name as contact_title %}
+                    {% component_block "modal-form" obj=contact title=contact_title %}
+                        {% fill "body" %}
+                            <div class="col-md-4">
+                                <div class="filter_col col-md-12">
+                                    {% translate "Name" as contact_name %}
+                                    {% component "label" id="contact_name" label=contact_name value=contact_title only %}
+                                </div>
+                                {% if contact.phone %}
+                                    <div class="filter_col col-md-12">
+                                        {% translate "Phone" as contact_phone %}
+                                        {% component "label" id="contact_phone" label=contact_phone value=contact.phone|default_if_none:"" only %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                {% if contact.email %}
+                                    <div class="filter_col col-md-12">
+                                        {% translate "Email" as contact_email %}
+                                        {% component "label" id="contact_email" label=contact_email value=contact.email only %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                {% if contact.address.address_line or contact.address.street or contact.address.city or contact.address.state or contact.address.postcode or contact.address.country %}
+                                    <div class="filter_col col-md-12">
+                                        {% translate "Billing Address" as contact_billing_adres %}
+                                        {% component "label" id="event_end_date" label=contact_billing_adres value=contact.address.get_complete_address only %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {% if contact.description %}
+                                <div class=" ml-2 col-md-12">
+                                    <div class="filter_col col-md-12">
+                                        {% translate "Description" as contact_description %}
+                                        {% component "label" id="contact_description" label=contact_description value=contact.description only %}
+                                    </div>
+                                </div>
+                                <div class="created_information">
+                                    {% trans "Created by" %} <b>{{ contact.created_by }}</b> {% trans "created on" %}
+                                    <b title="{{ contact.created_on }}">{{ contact.created_on_arrow }}</b>
+                                </div>
+                            {% endif %}
+                        {% endfill %}
+                    {% endcomponent_block %}
+                {% endwith %}
+            {% endfor %}
+        {% endfill %}
+
+        {# Custom table fields component block  #}
+        {% fill "body" %}
+            {% for contact in contact_obj_list %}
+                <tr class="text-center">
+                    <td scope="row">{{ forloop.counter }}</td>
+                    <td>
+                        <a href="#" data-toggle="modal" data-target="#modal_form_{{ contact.id }}">
+                            {{ contact.first_name }} {{ contact.last_name }}
+                        </a>
+                    </td>
+                    <td>
+                        {% component "assigned-to" users=contact.get_team_and_assigned_users href='common:view_user' %}
+                    </td>
+                    <td>
+                        {% if contact.address.city %}
+                            {{ contact.address.city }}
+                        {% else %}
+                            {% trans "Not Specified" %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contact.address.state %}
+                            {{ contact.address.state }}
+                        {% else %}
+                            {% trans "Not Specified" %}
+                        {% endif %}
+                    </td>
+                    <td title="{{ contact.created_on }}">{{ contact.created_on_arrow }}</td>
+                    <td class="actions">
+                        {% component "btn-view" href='contacts:view_contact' uri=contact.id %}
+                        {% component "btn-edit" href='contacts:edit_contact' uri=contact.id %}
+                        {% component "btn-delete" href='contacts:remove_contact' uri=contact.id %}
+                    </td>
+                </tr>
+            {% endfor %}
+        {% endfill %}
+    {% endcomponent_block %}
+</div>
