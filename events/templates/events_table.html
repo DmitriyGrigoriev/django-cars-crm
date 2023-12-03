@@ -23,7 +23,7 @@
         {# Modal window component block#}
         {% fill "data-target" %}
             {% for event in events %}
-                {% component_block "modal-form" obj=event %}
+                {% component_block "modal-form" obj=event title=event.name %}
                     {% fill "body" %}
                         <div class="col-md-4">
                             {% if event.name %}

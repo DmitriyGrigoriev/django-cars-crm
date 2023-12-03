@@ -1,0 +1,26 @@
+{% load i18n %}
+
+<div class="main_container">
+    {# Fiters component block#}
+    {% translate "Add New Contact" as btn_contact_text %}
+    {% component_block "filter" id="contacts_filter" label="Filters" btn_action='contacts:add_contact' btn_text=btn_contact_text form_action='contacts:list' reset_action='contacts:reset_filter' %}
+        {% fill "detail" %}
+            <div class="filter_col col-md-2">
+                {% translate "Name" as contact_name %}
+                {% translate "First Name" as contact_placeholder_name %}
+                {% component "input" id="contact_name" type="text" name=contact_name placeholder=contact_placeholder_name label=event_name value=request.POST.first_name|default_if_none:"" %}
+            </div>
+            <div class="filter_col col-md-2">
+                {% translate "City" as contact_city %}
+                {% translate "City" as contact_placeholder_city %}
+                {% component "input" id="contact_city" type="text" name=contact_city placeholder=contact_placeholder_city label=event_name value=request.POST.city|default_if_none:"" %}
+            </div>
+            <div class="filter_col col-md-2">
+                {% translate "Assigned To" as contact_assigned_to %}
+                {% component "select-assigned-to" label=contact_assigned_to id="contact_assigned_to" %}
+            </div>
+        {% endfill %}
+    {% endcomponent_block %}
+    {# Table component block#}
+    {%  include 'contacts_table.html' %}
+</div>

@@ -1,17 +1,22 @@
+{% load i18n %}
 {#{% component "progress" %}#}
 
 <div class="main_container">
     {# Fiters component block#}
-    {% component_block "filter" id="events_filter" label="Filters" btn_action='events:event_create' btn_text='Add New Events' form_action='events:events_list' reset_action='events:reset_filter' %}
+    {% translate "Add New Events" as btn_event_text %}
+    {% component_block "filter" id="events_filter" label="Filters" btn_action='events:event_create' btn_text=btn_event_text form_action='events:events_list' reset_action='events:reset_filter' %}
         {% fill "detail" %}
             <div class="filter_col col-md-2">
-                {% component "input" id="event_name" type="text" name="event_name" placeholder="Event Name" label="Event Name" value=request.POST.event_name|default_if_none:"" %}
+                {% translate "Event Name" as event_name %}
+                {% component "input" id="event_name" type="text" name="event_name" placeholder="Event Name" label=event_name value=request.POST.event_name|default_if_none:"" %}
             </div>
             <div class="filter_col col-md-2">
-                {% component "select-created-by" label="Created By" id="created_by" %}
+                {% translate "Created By" as created_by %}
+                {% component "select-created-by" label=created_by id="created_by" %}
             </div>
             <div class="filter_col col-md-2">
-                {% component "select-assigned-to" label="Assigned Users" id="assigned_to" %}
+                {% translate "Assigned Users" as assigned_to %}
+                {% component "select-assigned-to" label=assigned_to id="assigned_to" %}
             </div>
         {% endfill %}
     {% endcomponent_block %}

@@ -19,6 +19,7 @@ app_name = "contacts"
 
 urlpatterns = [
     path("", ContactsListView.as_view(), name="list"),
+    path("reset-filter", ContactsListView.as_view(), name="reset_filter"),
     path("create/", CreateContactView.as_view(), name="add_contact"),
     path("<int:pk>/view/", ContactDetailView.as_view(), name="view_contact"),
     path("<int:pk>/edit/", UpdateContactView.as_view(), name="edit_contact"),

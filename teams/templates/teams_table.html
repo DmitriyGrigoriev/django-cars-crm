@@ -19,29 +19,33 @@
         {# Modal window component block#}
         {% fill "data-target" %}
             {% for team in teams %}
-                {% component_block "modal-form" obj=team %}
+                {% component_block "modal-form" obj=team title=team.name %}
                     {% fill "body" %}
                         <div class="col-md-8">
                             {% if team.name %}{% endif %}
                             {% if team.description %}
                                 <div class="filter_col col-md-12">
-                                    {% component "label" id="team_description" label="Description" value=team.description|default_if_none:"" %}
+                                    {% translate "Description" as team_description %}
+                                    {% component "label" id="team_description" label=team_description value=team.description|default_if_none:"" %}
                                 </div>
                             {% endif %}
 
                             <div class="filter_col col-md-12">
-                                {% component "label" id="team_assigned_to" label="Assigned To" %}
+                                {% translate "Assigned To" as team_assigned_to %}
+                                {% component "label" id="team_assigned_to" label=team_assigned_to %}
                                 {% component "assigned-to" users=team.users href='common:view_user' %}
                             </div>
 
                             <div class="filter_col col-md-12">
                                 <div class="form-group mt-3">
-                                    {% component "label" id="team_created_by" label="Created By" value=obj.created_by %}
+                                    {% translate "Created By" as team_created_by %}
+                                    {% component "label" id="team_created_by" label=team_created_by value=obj.created_by %}
                                 </div>
                             </div>
 
                             <div class="filter_col col-md-12">
-                                {% component "label" id="team_created_on" label="Created On" value=obj.created_on_arrow %}
+                                {% translate "Created On" as team_created_on %}
+                                {% component "label" id="team_created_on" label=team_created_on value=obj.created_on_arrow %}
                             </div>
                         </div>
                     {% endfill %}
